@@ -1,7 +1,7 @@
 """Le bot Telegram du chantier 01 — une PORTE, pas un cerveau.
 
-Toute la logique d'étapes est dans parcours.py, tous les textes dans
-contenu.py. Ici : Telegram, les boutons, et rien d'autre.
+Toutes les DÉCISIONS sont dans parcours.py (et sous tests) ; tous les TEXTES
+dans contenu.py. Ici : Telegram, les boutons, et rien d'autre.
 
 Le bot appartient à Sofiane (créé sur son compte @BotFather) ; Zakaria
 n'héberge que l'exécution — garde-fou du CLAUDE.md du chantier.
@@ -9,6 +9,13 @@ n'héberge que l'exécution — garde-fou du CLAUDE.md du chantier.
 Env requis : TELEGRAM_BOT_TOKEN, STAKE_LIEN_PARRAINAGE, VPN_NOM.
 Env optionnel : MODE_TEST=1 (autorise le démarrage sans lien réel et montre
 les emplacements vidéo), VIDEOS_JSON (chemin du fichier des vidéos).
+
+Durci le 2026-09-17 après contre-audit (SOP-01 Phase 5). Trois règles tenues
+partout dans ce fichier :
+  1. on répond TOUJOURS par `ctx.bot.send_message` — jamais `query.message.reply_*`,
+     qui n'existe plus quand le message porteur du bouton est trop vieux ;
+  2. on ne fait jamais confiance au bouton cliqué, seulement à l'état en base ;
+  3. un handler ne meurt jamais en silence — au pire il dit quelque chose.
 """
 
 import html
@@ -21,6 +28,7 @@ from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
+from telegram.error import TelegramError
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes)
 
@@ -42,16 +50,21 @@ def videos() -> dict:
     le parcours ne bouge pas, les fichiers s'ajoutent.
     """
     chemin = Path(os.environ.get("VIDEOS_JSON", "/data/videos.json"))
+    if not chemin.exists():
+        return {}
     try:
         return json.loads(chemin.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as e:
+        # jamais muet : un fichier de vidéos cassé se voit (contre-audit)
+        log.error("videos.json illisible (%s) — parcours servi sans vidéo", e)
+        parcours.tracer("bot-echec", f"videos.json illisible : {e}")
         return {}
 
 
 def en_html(texte: str) -> str:
     """**gras** → <b>gras</b>, le reste échappé (pas de Markdown capricieux)."""
-    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", html.escape(texte),
-                  flags=re.S)
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>",
+                  html.escape(texte, quote=False), flags=re.S)
 
 
 def clavier_etape(etape_id: str) -> InlineKeyboardMarkup:
@@ -61,122 +74,166 @@ def clavier_etape(etape_id: str) -> InlineKeyboardMarkup:
     ]])
 
 
-async def envoyer_etape(cible, personne: str, etape_id: str, vpn_demande: bool):
+def clavier_vpn(complet: bool = True) -> InlineKeyboardMarkup:
+    lignes = [[InlineKeyboardButton(contenu.BOUTON_OUI, callback_data="vpn:oui")],
+              [InlineKeyboardButton(contenu.BOUTON_NON, callback_data="vpn:non")]]
+    if complet:
+        lignes.append([InlineKeyboardButton(contenu.BOUTON_CEST_QUOI,
+                                            callback_data="vpn:quoi")])
+    return InlineKeyboardMarkup(lignes)
+
+
+async def dire(ctx, chat_id: int, texte: str, clavier=None) -> None:
+    """Envoyer un texte, découpé si nécessaire — le clavier va sur le dernier
+    morceau. Passe par ctx.bot : ne dépend jamais d'un message porteur."""
+    morceaux = parcours.decouper(texte)
+    for i, morceau in enumerate(morceaux):
+        await ctx.bot.send_message(
+            chat_id=chat_id, text=en_html(morceau), parse_mode=ParseMode.HTML,
+            reply_markup=clavier if i == len(morceaux) - 1 else None)
+
+
+async def retirer_clavier(requete) -> None:
+    """Le message qu'on vient de traiter ne doit plus proposer ses boutons."""
+    try:
+        await requete.edit_message_reply_markup(reply_markup=None)
+    except TelegramError:
+        pass          # message trop vieux ou déjà édité — sans conséquence
+
+
+async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
+                        vpn_demande: bool) -> None:
     lien, vpn_nom = parcours.config()
     etapes = parcours.etapes_pour(vpn_demande)
     etape = parcours.etape_par_id(etapes, etape_id)
     if etape is None:
+        # ne peut plus arriver (etat_utilisable répare) — mais on ne se tait pas
+        log.error("étape inconnue demandée : %s", etape_id)
+        parcours.tracer("bot-echec", f"étape inconnue : {etape_id}")
+        await dire(ctx, chat_id, contenu.DEJA_FINI)
         return
     texte = parcours.rendu(etape, lien, vpn_nom, parcours.position(etapes, etape_id))
+    parcours.tracer("parcours-etape", f"{personne} · {etape_id}")
     fichier = videos().get(etape_id)
     if fichier:
-        await cible.reply_video(fichier, caption=en_html(texte),
-                                parse_mode=ParseMode.HTML,
-                                reply_markup=clavier_etape(etape_id))
-        return
+        try:
+            await ctx.bot.send_video(chat_id=chat_id, video=fichier,
+                                     caption=en_html(texte),
+                                     parse_mode=ParseMode.HTML,
+                                     reply_markup=clavier_etape(etape_id))
+            return
+        except TelegramError as e:
+            # une vidéo qui ne part pas ne doit pas priver de l'étape
+            log.error("vidéo %s refusée (%s) — étape servie en texte", etape_id, e)
+            parcours.tracer("bot-echec", f"vidéo {etape_id} refusée : {e}")
     if MODE_TEST:
         texte += f"\n\n[ 🎥 emplacement vidéo prêt — {etape_id} ]"
-    await cible.reply_text(en_html(texte), parse_mode=ParseMode.HTML,
-                           reply_markup=clavier_etape(etape_id))
-    parcours.tracer("parcours-etape", f"{personne} · {etape_id}")
+    await dire(ctx, chat_id, texte, clavier_etape(etape_id))
 
 
 async def demarrer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
     personne = str(update.effective_user.id)
-    cx = parcours.ouvrir()
-    etat = parcours.lire_etat(cx, personne)
+
+    # on lit (et répare) l'état, puis on referme AVANT de parler à Telegram
+    with parcours.connexion() as cx:
+        etat = parcours.etat_utilisable(cx, personne)
+        if not etat["fini"] and not etat["etape"]:
+            parcours.ecrire_etat(cx, personne, vpn=None, etape=None, fini=False)
 
     if etat["fini"]:
-        await update.message.reply_text(contenu.DEJA_FINI)
+        await dire(ctx, chat_id, contenu.DEJA_FINI)
         return
-    if etat["etape"]:  # reprise : on rend la main exactement où il s'était arrêté
-        await update.message.reply_text(contenu.RETOUR)
-        await envoyer_etape(update.message, personne, etat["etape"],
-                            bool(etat["vpn"]))
+    if etat["etape"]:
+        await dire(ctx, chat_id, contenu.RETOUR)
         parcours.tracer("parcours-reprise", personne)
+        await envoyer_etape(ctx, chat_id, personne, etat["etape"],
+                            bool(etat["vpn"]))
         return
 
-    parcours.ecrire_etat(cx, personne, vpn=None, etape=None, fini=False)
     parcours.tracer("parcours-debut", personne)
-    await update.message.reply_text(en_html(contenu.ACCUEIL),
-                                    parse_mode=ParseMode.HTML)
-    await update.message.reply_text(
-        en_html(contenu.QUESTION_VPN), parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton(contenu.BOUTON_OUI, callback_data="vpn:oui")],
-            [InlineKeyboardButton(contenu.BOUTON_NON, callback_data="vpn:non")],
-            [InlineKeyboardButton(contenu.BOUTON_CEST_QUOI, callback_data="vpn:quoi")],
-        ]))
+    await dire(ctx, chat_id, contenu.ACCUEIL)
+    await dire(ctx, chat_id, contenu.QUESTION_VPN, clavier_vpn())
 
 
 async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     requete = update.callback_query
-    await requete.answer()
+    try:
+        await requete.answer()
+    except TelegramError:
+        pass          # « query is too old » après un redémarrage : on continue
+    chat_id = update.effective_chat.id
     personne = str(update.effective_user.id)
-    cx = parcours.ouvrir()
-    action, _, valeur = requete.data.partition(":")
+    action, _, valeur = (requete.data or "").partition(":")
 
     if action == "vpn":
         if valeur == "quoi":
-            await requete.message.reply_text(
-                en_html(contenu.AIDE_VPN), parse_mode=ParseMode.HTML,
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(contenu.BOUTON_OUI, callback_data="vpn:oui"),
-                    InlineKeyboardButton(contenu.BOUTON_NON, callback_data="vpn:non"),
-                ]]))
+            await dire(ctx, chat_id, contenu.AIDE_VPN, clavier_vpn(complet=False))
             return
-        besoin = valeur == "oui"
-        premiere = parcours.etapes_pour(besoin)[0]["id"]
-        parcours.ecrire_etat(cx, personne, vpn=besoin, etape=premiere)
-        await envoyer_etape(requete.message, personne, premiere, besoin)
+        suite, etape = parcours.choisir_vpn(personne, valeur == "oui")
+        await retirer_clavier(requete)
+        if suite == "ignore":       # vieux bouton : on ne renvoie personne au début
+            await dire(ctx, chat_id, contenu.DEJA_REPONDU)
+            return
+        await envoyer_etape(ctx, chat_id, personne, etape,
+                            valeur == "oui")
         return
 
-    etat = parcours.lire_etat(cx, personne)
-    besoin = bool(etat["vpn"])
-    etapes = parcours.etapes_pour(besoin)
-
     if action == "bloque":
-        etape = parcours.etape_par_id(etapes, valeur)
-        if etape:
-            await requete.message.reply_text(
-                en_html(etape["aide"]), parse_mode=ParseMode.HTML,
-                reply_markup=clavier_etape(valeur))
-            await requete.message.reply_text(contenu.APRES_AIDE)
-            parcours.tracer("parcours-blocage", f"{personne} · {valeur}")
+        aide = parcours.aide_courante(personne)
+        if aide is None:
+            await dire(ctx, chat_id, contenu.PLUS_DANS_LE_PARCOURS)
+            return
+        etape_id, texte = aide
+        await dire(ctx, chat_id, texte, clavier_etape(etape_id))
+        await dire(ctx, chat_id, contenu.APRES_AIDE)
+        parcours.tracer("parcours-blocage", f"{personne} · {etape_id}")
         return
 
     if action == "fait":
-        suite = parcours.suivante(etapes, valeur)
-        if suite is None:
-            parcours.ecrire_etat(cx, personne, etape=None, fini=True)
-            parcours.tracer("parcours-fin", personne)
-            await requete.message.reply_text(en_html(contenu.FIN),
-                                             parse_mode=ParseMode.HTML)
+        suite, etape = parcours.avancer(personne, valeur)
+        await retirer_clavier(requete)
+        if suite == "ignore":
+            await dire(ctx, chat_id, contenu.DEJA_VALIDE)
             return
-        parcours.ecrire_etat(cx, personne, etape=suite)
-        await envoyer_etape(requete.message, personne, suite, besoin)
+        if suite == "fini":
+            parcours.tracer("parcours-fin", personne)
+            await dire(ctx, chat_id, contenu.FIN)
+            return
+        with parcours.connexion() as cx:
+            vpn = bool(parcours.lire_etat(cx, personne)["vpn"])
+        await envoyer_etape(ctx, chat_id, personne, etape, vpn)
 
 
 async def aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    personne = str(update.effective_user.id)
-    cx = parcours.ouvrir()
-    etat = parcours.lire_etat(cx, personne)
-    if not etat["etape"]:
-        await update.message.reply_text("Tape /start pour (re)commencer le parcours.")
+    chat_id = update.effective_chat.id
+    aide_ = parcours.aide_courante(str(update.effective_user.id))
+    if aide_ is None:
+        await dire(ctx, chat_id, contenu.PLUS_DANS_LE_PARCOURS)
         return
-    etape = parcours.etape_par_id(parcours.etapes_pour(bool(etat["vpn"])),
-                                 etat["etape"])
-    await update.message.reply_text(en_html(etape["aide"]),
-                                    parse_mode=ParseMode.HTML,
-                                    reply_markup=clavier_etape(etat["etape"]))
+    etape_id, texte = aide_
+    await dire(ctx, chat_id, texte, clavier_etape(etape_id))
 
 
 async def recommencer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    cx = parcours.ouvrir()
-    cx.execute("DELETE FROM progression WHERE personne = ?",
-               (str(update.effective_user.id),))
-    cx.commit()
+    with parcours.connexion() as cx:
+        cx.execute("DELETE FROM progression WHERE personne = ?",
+                   (str(update.effective_user.id),))
+        cx.commit()
     await demarrer(update, ctx)
+
+
+async def incident(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Filet de dernier recours : aucune erreur ne laisse la personne sans
+    réponse, et aucune ne reste invisible côté Labo."""
+    log.exception("erreur non rattrapée", exc_info=ctx.error)
+    parcours.tracer("bot-echec", f"erreur non rattrapée : {ctx.error!r}")
+    chat = getattr(update, "effective_chat", None)
+    if chat is not None:
+        try:
+            await ctx.bot.send_message(chat_id=chat.id, text=contenu.PANNE)
+        except TelegramError:
+            pass
 
 
 def main() -> int:
@@ -202,6 +259,7 @@ def main() -> int:
     app.add_handler(CommandHandler("aide", aide))
     app.add_handler(CommandHandler("recommencer", recommencer))
     app.add_handler(CallbackQueryHandler(bouton))
+    app.add_error_handler(incident)
     log.info("Bot d'accompagnement en écoute%s", " (MODE_TEST)" if MODE_TEST else "")
     parcours.tracer("bot-demarrage", "mode test" if MODE_TEST else "réel")
     app.run_polling()

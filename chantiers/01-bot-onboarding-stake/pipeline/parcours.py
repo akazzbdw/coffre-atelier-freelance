@@ -9,6 +9,7 @@ import argparse
 import os
 import sqlite3
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -49,8 +50,18 @@ def ouvrir(db_path: Path | None = None) -> sqlite3.Connection:
         " fini INTEGER DEFAULT 0,"
         " maj TEXT)"
     )
-    cx.commit()
     return cx
+
+
+@contextmanager
+def connexion():
+    """Une connexion qui se referme — les handlers du bot passent par là
+    (contre-audit 2026-09-17 : une connexion par clic, jamais fermée)."""
+    cx = ouvrir()
+    try:
+        yield cx
+    finally:
+        cx.close()
 
 
 def etapes_pour(vpn: bool) -> list[dict]:
@@ -59,10 +70,26 @@ def etapes_pour(vpn: bool) -> list[dict]:
     return [e for e in contenu.ETAPES if vpn or not e.get("optionnelle")]
 
 
+def remplir(texte: str, lien: str, vpn: str) -> str:
+    """Remplace {lien} et {vpn}, et RIEN d'autre.
+
+    Volontairement pas `.format()` : contenu.py est relu et corrigé par le
+    demandeur, qui n'est pas codeur. Une accolade tapée dans un texte
+    (« appuie sur {Connect} ») faisait planter l'étape entière
+    (contre-audit 2026-09-17).
+    """
+    return texte.replace("{lien}", lien).replace("{vpn}", vpn)
+
+
+def aide_rendue(etape: dict, lien: str, vpn: str) -> str:
+    """L'aide d'une étape — les placeholders y valent aussi (contre-audit)."""
+    return remplir(etape["aide"], lien, vpn)
+
+
 def rendu(etape: dict, lien: str, vpn: str, position: tuple[int, int]) -> str:
     """Le message complet d'une étape, prêt à envoyer."""
     numero, total = position
-    corps = etape["corps"].format(lien=lien, vpn=vpn)
+    corps = remplir(etape["corps"], lien, vpn)
     return (f"**Étape {numero}/{total} — {etape['titre']}**\n\n"
             f"{corps}\n\n"
             f"⏱ {etape['minutes']} minutes")
@@ -118,6 +145,98 @@ def tracer(genre: str, detail: str = "") -> None:
             pass
 
 
+# ------------------------------------------------- décisions (testables sans Telegram)
+#
+# Tout ce que le bot DÉCIDE vit ici : les handlers Telegram ne font
+# qu'appeler ces fonctions et envoyer le résultat. Le contre-audit du
+# 2026-09-17 a montré que les défauts sérieux étaient tous dans le fichier
+# non testé (bot.py) — la logique est donc redescendue ici, sous tests.
+
+def etat_utilisable(cx, personne: str) -> dict:
+    """L'état de la personne, RÉPARÉ si l'étape stockée n'existe plus.
+
+    Un id d'étape renommé ou supprimé dans contenu.py (fichier relu par le
+    demandeur) laissait la personne dans un cul-de-sac muet : le bot disait
+    « Tu en étais là : » et plus rien, à chaque /start, pour toujours.
+    """
+    etat = lire_etat(cx, personne)
+    etat["repare"] = False
+    if etat["etape"] and not etape_par_id(etapes_pour(bool(etat["vpn"])), etat["etape"]):
+        etat["etape"] = etapes_pour(bool(etat["vpn"]))[0]["id"]
+        etat["repare"] = True
+        ecrire_etat(cx, personne, etape=etat["etape"])
+    return etat
+
+
+def choisir_vpn(personne: str, besoin: bool) -> tuple[str, str | None]:
+    """Réponse à la question du VPN. ("suite", première étape) ou ("ignore", None).
+
+    Ignorée si la personne a déjà dépassé la question : sans ça, un clic sur
+    le tout premier message (resté dans le fil) la renvoyait au début, ou
+    créait un état « fini ET à l'étape 1 » impossible (contre-audit).
+    """
+    with connexion() as cx:
+        etat = lire_etat(cx, personne)
+        if etat["fini"] or etat["etape"]:
+            return ("ignore", None)
+        premiere = etapes_pour(besoin)[0]["id"]
+        ecrire_etat(cx, personne, vpn=besoin, etape=premiere)
+        return ("suite", premiere)
+
+
+def avancer(personne: str, etape_cliquee: str) -> tuple[str, str | None]:
+    """« C'est fait » sur une étape. ("suite", id) · ("fini", None) · ("ignore", None).
+
+    On se fie à l'étape EN BASE, jamais au bouton cliqué : un vieux bouton
+    d'un message plus haut dans le fil faisait reculer la progression de deux
+    étapes, ou plantait le handler quand l'étape n'était plus dans la liste
+    (contre-audit — deux scénarios prouvés, sans intervention de personne).
+    """
+    with connexion() as cx:
+        etat = etat_utilisable(cx, personne)
+        if etat["fini"] or not etat["etape"] or etape_cliquee != etat["etape"]:
+            return ("ignore", None)
+        etapes = etapes_pour(bool(etat["vpn"]))
+        suite = suivante(etapes, etat["etape"])
+        if suite is None:
+            ecrire_etat(cx, personne, etape=None, fini=True)
+            return ("fini", None)
+        ecrire_etat(cx, personne, etape=suite)
+        return ("suite", suite)
+
+
+def aide_courante(personne: str) -> tuple[str, str] | None:
+    """(id de l'étape, texte d'aide) pour la personne — None si hors parcours."""
+    lien, vpn = config()
+    with connexion() as cx:
+        etat = etat_utilisable(cx, personne)
+        if etat["fini"] or not etat["etape"]:
+            return None
+        etape = etape_par_id(etapes_pour(bool(etat["vpn"])), etat["etape"])
+        if etape is None:           # ceinture : etat_utilisable a déjà réparé
+            return None
+        return (etat["etape"], aide_rendue(etape, lien, vpn))
+
+
+def decouper(texte: str, limite: int = 3800) -> list[str]:
+    """Telegram refuse au-delà de 4096 caractères — une aide un peu longue
+    écrite par le demandeur partait en erreur 400 (contre-audit)."""
+    if len(texte) <= limite:
+        return [texte]
+    morceaux, reste = [], texte
+    while len(reste) > limite:
+        coupe = reste.rfind("\n", 0, limite)
+        if coupe < limite // 2:
+            coupe = reste.rfind(" ", 0, limite)
+        if coupe <= 0:
+            coupe = limite
+        morceaux.append(reste[:coupe].rstrip())
+        reste = reste[coupe:].lstrip()
+    if reste:
+        morceaux.append(reste)
+    return morceaux
+
+
 # ------------------------------------------------------------------ config
 
 def config() -> tuple[str, str]:
@@ -130,9 +249,14 @@ def config_incomplete() -> list[str]:
     """Ce qui manque encore pour une mise en ligne réelle (réponses de Sofiane)."""
     lien, vpn = config()
     manques = []
-    if lien == contenu.LIEN_PARRAINAGE_A_DEFINIR:
-        manques.append("STAKE_LIEN_PARRAINAGE (lien de parrainage)")
-    if vpn == contenu.VPN_A_DEFINIR:
+    # Une variable PRÉSENTE mais vide (le .env.example livré la pose vide) ne
+    # retombait pas sur le placeholder : le bot démarrait et envoyait « Ouvre
+    # ce lien : » suivi de rien (contre-audit 2026-09-17).
+    if (lien.strip() in ("", contenu.LIEN_PARRAINAGE_A_DEFINIR)
+            or lien.strip().startswith("#")
+            or not lien.strip().startswith("http")):
+        manques.append("STAKE_LIEN_PARRAINAGE (lien de parrainage, doit commencer par http)")
+    if vpn.strip() in ("", contenu.VPN_A_DEFINIR) or vpn.strip().startswith("#"):
         manques.append("VPN_NOM (quel VPN gratuit)")
     return manques
 

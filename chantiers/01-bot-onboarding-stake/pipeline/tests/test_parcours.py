@@ -142,3 +142,134 @@ class TestSimulateur(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVieuxBoutons(Base):
+    """Les scénarios prouvés par le contre-audit du 2026-09-17 : tout ce qui
+    se passe quand quelqu'un reclique un bouton resté plus haut dans le fil."""
+
+    def test_un_vieux_bouton_ne_fait_pas_reculer(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "1", vpn=False, etape="depot")
+        cx.close()
+        suite, etape = parcours.avancer("1", "compte")   # vieux bouton de l'étape 1
+        self.assertEqual(suite, "ignore")
+        self.assertIsNone(etape)
+        cx = parcours.ouvrir()
+        self.assertEqual(parcours.lire_etat(cx, "1")["etape"], "depot")
+
+    def test_reclic_sur_la_question_vpn_ne_renvoie_pas_au_debut(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "2", vpn=False, etape="jeux")
+        cx.close()
+        suite, _ = parcours.choisir_vpn("2", True)
+        self.assertEqual(suite, "ignore")
+        cx = parcours.ouvrir()
+        self.assertEqual(parcours.lire_etat(cx, "2")["etape"], "jeux")
+
+    def test_une_personne_finie_ne_repart_pas_a_l_etape_1(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "3", vpn=False, etape=None, fini=True)
+        cx.close()
+        self.assertEqual(parcours.choisir_vpn("3", True)[0], "ignore")
+        self.assertEqual(parcours.avancer("3", "jeux")[0], "ignore")
+        cx = parcours.ouvrir()
+        etat = parcours.lire_etat(cx, "3")
+        self.assertTrue(etat["fini"])
+        self.assertIsNone(etat["etape"])   # jamais « fini ET à l'étape vpn »
+
+    def test_clic_sur_une_etape_qui_n_existe_plus_ne_plante_pas(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "4", vpn=True, etape="vpn")
+        parcours.ecrire_etat(cx, "4", vpn=False)   # elle a changé d'avis ailleurs
+        cx.close()
+        suite, _ = parcours.avancer("4", "vpn")    # l'étape vpn n'est plus servie
+        self.assertEqual(suite, "ignore")          # au lieu d'un ValueError
+
+    def test_avancer_normalement_marche_toujours(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "5", vpn=False, etape="compte")
+        cx.close()
+        self.assertEqual(parcours.avancer("5", "compte"), ("suite", "verification"))
+
+    def test_derniere_etape_termine_le_parcours(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "6", vpn=False, etape="jeux")
+        cx.close()
+        self.assertEqual(parcours.avancer("6", "jeux"), ("fini", None))
+        cx = parcours.ouvrir()
+        self.assertTrue(parcours.lire_etat(cx, "6")["fini"])
+
+
+class TestEtatRepare(Base):
+    def test_une_etape_disparue_est_reparee_au_lieu_du_cul_de_sac(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "7", vpn=False, etape="etape-renommee-par-sofiane")
+        etat = parcours.etat_utilisable(cx, "7")
+        self.assertTrue(etat["repare"])
+        self.assertEqual(etat["etape"], "compte")
+
+    def test_aide_courante_ne_plante_jamais(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "8", vpn=False, etape="etape-qui-n-existe-plus")
+        cx.close()
+        etape_id, texte = parcours.aide_courante("8")
+        self.assertEqual(etape_id, "compte")
+        self.assertTrue(texte.strip())
+
+    def test_aide_courante_est_none_hors_parcours(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "9", vpn=False, etape=None, fini=True)
+        cx.close()
+        self.assertIsNone(parcours.aide_courante("9"))
+
+
+class TestContenuRelu(Base):
+    """contenu.py est relu et corrigé par le demandeur, qui n'est pas codeur :
+    ses fautes de frappe ne doivent pas casser le bot (contre-audit 2026-09-17)."""
+
+    def test_une_accolade_tapee_dans_un_texte_ne_casse_rien(self):
+        texte = parcours.remplir("appuie sur {Connect} puis ouvre {lien}",
+                                 "https://x.test", "UnVPN")
+        self.assertIn("{Connect}", texte)      # laissé tel quel, pas de KeyError
+        self.assertIn("https://x.test", texte)
+
+    def test_le_lien_vaut_aussi_dans_une_aide(self):
+        etape = {"aide": "Reprends depuis {lien} avec {vpn}"}
+        texte = parcours.aide_rendue(etape, "https://x.test", "UnVPN")
+        self.assertNotIn("{lien}", texte)
+        self.assertNotIn("{vpn}", texte)
+
+    def test_un_texte_trop_long_est_decoupe_sous_la_limite_telegram(self):
+        long = ("Une ligne d'explication assez longue pour compter.\n" * 200)
+        morceaux = parcours.decouper(long)
+        self.assertGreater(len(morceaux), 1)
+        for m in morceaux:
+            self.assertLessEqual(len(m), 3800)
+        sans_blancs = lambda s: "".join(s.split())
+        self.assertEqual(sans_blancs("".join(morceaux)), sans_blancs(long))
+
+    def test_un_texte_court_n_est_pas_touche(self):
+        self.assertEqual(parcours.decouper("court"), ["court"])
+
+
+class TestConfigDure(Base):
+    """Le garde-fou « aucun mode dégradé silencieux » doit tenir même quand le
+    .env est copié puis laissé vide (contre-audit : il ne tenait pas)."""
+
+    def test_variable_vide_compte_comme_manquante(self):
+        os.environ["STAKE_LIEN_PARRAINAGE"] = ""
+        manques = parcours.config_incomplete()
+        self.assertTrue(any("parrainage" in m for m in manques))
+
+    def test_commentaire_laisse_dans_le_env_compte_comme_manquant(self):
+        os.environ["STAKE_LIEN_PARRAINAGE"] = "# son lien de parrainage"
+        self.assertTrue(any("parrainage" in m for m in parcours.config_incomplete()))
+
+    def test_un_lien_qui_n_est_pas_une_url_est_refuse(self):
+        os.environ["STAKE_LIEN_PARRAINAGE"] = "stake mon code SOF123"
+        self.assertTrue(any("parrainage" in m for m in parcours.config_incomplete()))
+
+    def test_vpn_vide_compte_comme_manquant(self):
+        os.environ["VPN_NOM"] = "   "
+        self.assertTrue(any("VPN_NOM" in m for m in parcours.config_incomplete()))

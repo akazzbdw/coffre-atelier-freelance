@@ -19,8 +19,13 @@ services:
     volumes:
       - bot-stake-data:/data
       # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
-      # raison de voir le reste du Labo (il sert des inconnus)
+      # raison de voir le reste du Labo (il sert des inconnus).
+      # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
+      # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
+      # la couche éphémère du conteneur et mouraient à chaque redéploiement —
+      # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
+      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
 
 volumes:
   bot-stake-data:

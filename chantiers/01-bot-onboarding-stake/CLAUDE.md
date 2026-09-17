@@ -78,3 +78,22 @@ Si Sofiane ne fournit ni lien de parrainage ni jeton **avant le 2026-10-01**, le
 |---|---|
 | 2026-09-17 | Brief écrit d'après le groupe WhatsApp (lu via le pont OpenWA du 05). En attente de validation Zakaria. |
 | 2026-09-17 | Parcours construit et prouvé au terminal (15 tests). En attente des trois réponses de Sofiane pour la mise en ligne. |
+| 2026-09-17 | **Contre-audit passé et défauts corrigés** (6 sérieux, tous dans `bot.py`, qu'aucun test ne touchait). Les décisions du parcours sont redescendues dans `parcours.py`, sous tests ; `bot.py` a les siens (faux Telegram). 40 tests. |
+
+## Ce que le contre-audit a trouvé (2026-09-17) et ce qu'on en a fait
+
+Le premier jet marchait au terminal et passait ses 15 tests — et il aurait mal servi de vrais clients. Les six défauts sérieux vivaient tous dans `bot.py`, le seul fichier qu'aucun test ne touchait. Leçon gravée ici : **les tests suivaient la logique facile à tester, pas celle qui casse**.
+
+| Ce qui cassait | Effet pour la personne | Corrigé par |
+|---|---|---|
+| `.env` copié mais laissé vide : la variable existe et vaut `""`, donc le garde-fou ne voyait pas le placeholder | le bot démarrait « en réel » et envoyait « Ouvre ce lien : » suivi de **rien** | `config_incomplete()` teste le vide, le commentaire et la forme (`http…`) ; `.env.example` sans valeur collée |
+| `query.message.reply_text` sur un message trop vieux (Telegram renvoie un `InaccessibleMessage`) | quelqu'un qui revient 3 jours après et clique sur le bouton resté à l'écran : **aucune réponse, jamais** | tout passe par `ctx.bot.send_message` |
+| `answer()` non protégé : « query is too old » au redémarrage du conteneur | le clic est perdu, la progression n'avance plus | `try/except` — le clic continue d'être traité |
+| `suivante()` sur une étape qui n'est plus dans la liste | `ValueError`, handler mort, silence définitif | on se fie à l'étape **en base**, jamais au bouton cliqué |
+| Vieux boutons restés dans le fil | retour en arrière de deux étapes, ou état « fini ET à l'étape 1 » | clic périmé = le bot le dit, l'état ne bouge pas ; le clavier du message traité est retiré |
+| Étape renommée dans `contenu.py` (fichier relu par le demandeur) | cul-de-sac muet : « Tu en étais là : » puis rien, à chaque `/start` | `etat_utilisable()` répare l'état |
+| Accolade tapée dans un texte (« appuie sur {Connect} ») | `KeyError`, l'étape ne partait jamais | plus de `.format()` : substitution de `{lien}` et `{vpn}` seulement |
+| Aide longue > 4096 caractères | erreur 400, rien ne part | découpage automatique |
+| Boîte noire écrite dans la couche éphémère du conteneur | toutes les traces perdues à chaque redéploiement, **y compris l'échec de démarrage** | `01-Vault` monté en écriture dans le compose |
+
+Restent volontairement en l'état : les connexions SQLite ouvertes à chaque clic sont maintenant refermées, et `Application` traite les updates une par une (pas de concurrence) — si quelqu'un active `concurrent_updates` un jour, `ecrire_etat` devra passer en transaction.

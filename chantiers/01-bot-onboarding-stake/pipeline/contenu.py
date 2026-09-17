@@ -151,3 +151,12 @@ BOUTON_OUI = "Oui, j'en ai besoin"
 BOUTON_NON = "Non, ça marche chez moi"
 BOUTON_CEST_QUOI = "C'est quoi un VPN ?"
 APRES_AIDE = "Dis-moi quand c'est bon 👇"
+
+# Réponses aux gestes « hors parcours » (contre-audit 2026-09-17 : un vieux
+# bouton cliqué plus haut dans le fil ne doit jamais laisser le bot muet,
+# ni faire reculer la personne).
+DEJA_VALIDE = "Cette étape est déjà validée 👍 Tu en es à la suivante, plus haut."
+DEJA_REPONDU = "Tu as déjà répondu à cette question — continue là où tu en étais 👆"
+PLUS_DANS_LE_PARCOURS = "Tape /start pour (re)prendre le parcours."
+PANNE = ("Aïe, j'ai eu un souci de mon côté. Réessaie dans un instant — "
+         "et si ça recommence, tape /start.")
