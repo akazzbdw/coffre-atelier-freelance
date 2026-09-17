@@ -1,0 +1,2 @@
+# Versions ÉPINGLÉES (règle Labo 2026-08-23 : une image doit être reproductible)
+python-telegram-bot==22.8

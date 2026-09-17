@@ -1,0 +1,26 @@
+# Bot d'accompagnement Stake (chantier 01 de l'atelier freelance).
+# PAS ENCORE DÉPLOYÉ : il attend le jeton créé par Sofiane sur SON compte
+# @BotFather, plus son lien de parrainage et le nom du VPN (voir le CLAUDE.md
+# du chantier). Secrets dans .env, jamais commité.
+# Mise en ligne, le jour venu : ajouter le dossier à PROJECTS du veilleur
+# ~/autodeploy.sh sur le VPS, puis pousser.
+
+services:
+  bot-stake:
+    build:
+      context: ..
+      dockerfile: pipeline/Dockerfile
+      args:
+        LABO_FUSEAU: ${LABO_FUSEAU:-Europe/Zurich}
+    image: labo/bot-onboarding-stake
+    container_name: bot-onboarding-stake
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - bot-stake-data:/data
+      # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
+      # raison de voir le reste du Labo (il sert des inconnus)
+      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
+
+volumes:
+  bot-stake-data:
