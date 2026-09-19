@@ -41,9 +41,16 @@ class TestEtapes(Base):
         self.assertEqual(avec[0], "vpn")
         self.assertEqual(len(avec), len(sans) + 1)
 
-    def test_les_quatre_etapes_du_brief_sont_la(self):
+    def test_la_route_courte_a_les_etapes_du_brief_plus_le_bonus(self):
         ids = [e["id"] for e in parcours.etapes_pour(False)]
-        self.assertEqual(ids, ["compte", "verification", "depot", "jeux"])
+        self.assertEqual(ids, ["compte", "verification", "depot", "bonus", "jeux"])
+
+    def test_la_route_debutant_ajoute_vpn_et_crypto(self):
+        """Appel Sofiane du 2026-09-19 : qui part de zéro crée le compte,
+        installe le VPN, achète de la crypto, dépose."""
+        ids = [e["id"] for e in parcours.etapes_pour(True, True)]
+        self.assertEqual(ids, ["vpn", "compte", "verification", "crypto", "depot", "bonus", "jeux"])
+        self.assertNotIn("crypto", [e["id"] for e in parcours.etapes_pour(True, False)])
 
     def test_chaque_etape_a_un_texte_et_une_aide(self):
         for etape in contenu.ETAPES:
@@ -54,9 +61,9 @@ class TestEtapes(Base):
     def test_le_lien_de_parrainage_est_dans_l_etape_compte(self):
         etapes = parcours.etapes_pour(False)
         texte = parcours.rendu(etapes[0], "https://exemple.test/r/sofiane",
-                               "UnVPN", (1, 4))
+                               "UnVPN", parcours.position(etapes, "compte"))
         self.assertIn("https://exemple.test/r/sofiane", texte)
-        self.assertIn("Étape 1/4", texte)
+        self.assertIn("Étape 1/5", texte)
 
     def test_aucun_placeholder_ne_fuit_dans_un_rendu(self):
         lien, vpn = parcours.config()
@@ -117,27 +124,96 @@ class TestConfig(Base):
 class TestSimulateur(Base):
     def test_parcours_complet_sans_vpn(self):
         lignes = []
-        vues = parcours.simuler(entrees=["n", "f", "f", "f", "f"],
+        vues = parcours.simuler(entrees=["c", "n", "f", "f", "f", "f", "f"],
                                 sortie=lignes.append)
-        self.assertEqual(vues, ["compte", "verification", "depot", "jeux"])
+        self.assertEqual(vues, ["compte", "verification", "depot", "bonus", "jeux"])
         self.assertIn(contenu.FIN, "\n".join(lignes))
 
     def test_parcours_complet_avec_vpn_et_un_blocage(self):
         lignes = []
-        vues = parcours.simuler(entrees=["o", "b", "f", "f", "f", "f", "f"],
+        vues = parcours.simuler(entrees=["c", "o", "b", "f", "f", "f", "f", "f", "f"],
                                 sortie=lignes.append)
         self.assertEqual(vues[0], "vpn")
-        self.assertEqual(len(vues), 5)
+        self.assertEqual(len(vues), 6)
         texte = "\n".join(lignes)
         self.assertIn("version gratuite", texte)   # l'aide du VPN a bien été servie
         self.assertIn(contenu.FIN, texte)
 
     def test_la_question_vpn_explique_avant_de_redemander(self):
         lignes = []
-        parcours.simuler(entrees=["q", "n", "f", "f", "f", "f"],
+        parcours.simuler(entrees=["c", "q", "n", "f", "f", "f", "f", "f"],
                          sortie=lignes.append)
         texte = "\n".join(lignes)
         self.assertIn(contenu.AIDE_VPN.split("\n")[0], texte)
+
+
+    def test_parcours_debutant_avec_demande_de_bonus(self):
+        lignes = []
+        vues = parcours.simuler(entrees=["z", "f", "f", "f", "f", "f", "d", "f"],
+                                sortie=lignes.append)
+        self.assertEqual(vues, ["vpn", "compte", "verification", "crypto", "depot", "bonus", "jeux"])
+        self.assertIn(contenu.BONUS_DEMANDE_OK, "\n".join(lignes))
+
+
+class TestRoutes(Base):
+    """V1.1 — la question de départ et l'étape bonus, sous tests comme le reste."""
+
+    def test_partir_de_zero_donne_la_route_complete_sans_question_vpn(self):
+        self.assertEqual(parcours.choisir_depart("42", True), ("suite", "vpn"))
+        cx = parcours.ouvrir()
+        etat = parcours.lire_etat(cx, "42")
+        self.assertTrue(etat["debutant"]); self.assertTrue(etat["vpn"])
+
+    def test_avoir_deja_de_la_crypto_passe_par_la_question_vpn(self):
+        self.assertEqual(parcours.choisir_depart("42", False), ("vpn", None))
+        self.assertEqual(parcours.choisir_vpn("42", False), ("suite", "compte"))
+
+    def test_la_question_vpn_est_ignoree_avant_la_question_de_depart(self):
+        self.assertEqual(parcours.choisir_vpn("42", True), ("ignore", None))
+
+    def test_reclic_sur_la_question_de_depart_ne_change_rien(self):
+        parcours.choisir_depart("42", False)
+        self.assertEqual(parcours.choisir_depart("42", True), ("ignore", None))
+        cx = parcours.ouvrir()
+        self.assertFalse(parcours.lire_etat(cx, "42")["debutant"])
+
+    def test_demander_le_bonus_enregistre_et_avance(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        self.assertEqual(parcours.demander_bonus("42", "@toto"), ("nouvelle", "jeux"))
+        self.assertEqual([d[1] for d in parcours.demandes_bonus()], ["@toto"])
+        cx = parcours.ouvrir()
+        self.assertEqual(parcours.lire_etat(cx, "42")["etape"], "jeux")
+
+    def test_demande_de_bonus_hors_etape_est_ignoree(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="compte")
+        cx.close()
+        self.assertEqual(parcours.demander_bonus("42"), ("ignore", None))
+        self.assertEqual(parcours.demandes_bonus(), [])
+
+    def test_une_seule_demande_par_personne(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        parcours.demander_bonus("42", "@toto")
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", etape="bonus")      # revenu sur l'étape (recommencer)
+        cx.close()
+        self.assertEqual(parcours.demander_bonus("42", "@toto"), ("deja", None))
+        self.assertEqual(len(parcours.demandes_bonus()), 1)
+
+    def test_une_base_de_la_v1_recoit_la_colonne_debutant(self):
+        import sqlite3
+        cx = sqlite3.connect(self.db)
+        cx.execute("CREATE TABLE progression (personne TEXT PRIMARY KEY, vpn INTEGER,"
+                   " etape TEXT, fini INTEGER DEFAULT 0, maj TEXT)")
+        cx.execute("INSERT INTO progression VALUES ('7', 0, 'depot', 0, 'x')")
+        cx.commit(); cx.close()
+        cx = parcours.ouvrir()
+        etat = parcours.lire_etat(cx, "7")
+        self.assertEqual(etat["etape"], "depot"); self.assertIsNone(etat["debutant"])
 
 
 if __name__ == "__main__":

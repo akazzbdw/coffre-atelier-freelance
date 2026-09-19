@@ -22,6 +22,17 @@ ACCUEIL = (
     "Tu peux t'arrêter quand tu veux — je me souviens où tu en es."
 )
 
+# V1.1 (appel Sofiane du 2026-09-19) : deux routes. « Je pars de zéro » =
+# VPN + achat de crypto inclus d'office ; « J'ai déjà de la crypto » = VPN
+# seulement si la personne dit en avoir besoin.
+QUESTION_DEPART = (
+    "Pour commencer, dis-moi où tu en es :\n\n"
+    "• **Je pars de zéro** — pas de compte, pas de crypto : je te guide sur tout.\n"
+    "• **J'ai déjà de la crypto** — on va plus vite."
+)
+BOUTON_ZERO = "Je pars de zéro"
+BOUTON_CRYPTO = "J'ai déjà de la crypto"
+
 QUESTION_VPN = (
     "Avant de commencer, une question :\n\n"
     "**Est-ce que tu as besoin d'un VPN ?**\n"
@@ -98,6 +109,28 @@ ETAPES = [
         ),
     },
     {
+        "id": "crypto",
+        "titre": "Acheter un peu de crypto",
+        "minutes": 5,
+        "debutants": True,            # servie seulement à qui part de zéro (V1.1)
+        "corps": (
+            "Le site fonctionne en crypto. Le plus simple, sans quitter le site :\n\n"
+            "1. Clique sur **Wallet**, puis **Acheter des cryptos**\n"
+            "2. Choisis le montant que tu as décidé — pas plus\n"
+            "3. Paie par carte et attends que ça apparaisse dans ton wallet\n\n"
+            "Ne mets que ce que tu peux te permettre de perdre."
+        ),
+        "aide": (
+            "• **Ta carte est refusée ?** Certaines banques bloquent les achats de "
+            "crypto : essaie une autre carte, ou passe par une appli d'achat "
+            "(Coinbase, Binance…) puis envoie la crypto sur ton wallet du site.\n"
+            "• **Quelle crypto choisir ?** Peu importe pour la suite — prends "
+            "celle proposée par défaut, c'est la plus simple.\n"
+            "• **Ça n'apparaît pas tout de suite ?** Quelques minutes sont "
+            "normales. Ne repaie pas deux fois."
+        ),
+    },
+    {
         "id": "depot",
         "titre": "Faire ton premier dépôt",
         "minutes": 4,
@@ -115,6 +148,32 @@ ETAPES = [
             "surtout ne dépose pas deux fois.\n"
             "• **Un code de confirmation t'est demandé ?** Il vient de ta "
             "banque, par SMS ou dans son appli."
+        ),
+    },
+    {
+        "id": "bonus",
+        "titre": "Activer ton bonus de bienvenue",
+        "minutes": 1,
+        "corps": (
+            "Au premier dépôt, tu as droit à **un** bonus, au choix :\n\n"
+            "🎁 **Bonus 20 €** — tu as déposé au moins 20 € et tu les as joués : "
+            "tu reçois 20 € de recharge.\n\n"
+            "🎁 **Bonus 200 %** — tu as déposé entre 200 € et 1 000 € : le site "
+            "ajoute 200 % de ton dépôt (200 € déposés → 400 € de bonus → 600 € au total). "
+            "Ce total doit être misé 35 fois avant de pouvoir être retiré.\n\n"
+            "⚠️ Le bonus n'est pas automatique : appuie sur **« Je demande mon bonus »**, "
+            "l'équipe l'active sous 24 h. Pour le 200 %, **ne touche pas à ton solde** "
+            "tant qu'il n'est pas activé.\n\n"
+            "Tu peux aussi passer cette étape."
+        ),
+        "aide": (
+            "• **Lequel choisir ?** Le 20 € si tu as fait un petit dépôt, le 200 % "
+            "si tu as déposé au moins 200 €. Lis bien les conditions : elles "
+            "engagent (le 200 % demande de miser 35 fois le total).\n"
+            "• **Tu as déjà demandé ?** L'activation prend jusqu'à 24 h — pas besoin "
+            "de redemander.\n"
+            "• **Tu as touché à ton solde avant l'activation ?** Dis-le à Sofiane, "
+            "il verra ce qui est possible."
         ),
     },
     {
@@ -150,6 +209,15 @@ BOUTON_BLOQUE = "🤔 Je bloque"
 BOUTON_OUI = "Oui, j'en ai besoin"
 BOUTON_NON = "Non, ça marche chez moi"
 BOUTON_CEST_QUOI = "C'est quoi un VPN ?"
+BOUTON_BONUS = "🎁 Je demande mon bonus"
+BOUTON_PASSER = "Je passe cette étape"
+BONUS_DEMANDE_OK = (
+    "C'est noté 👍 L'équipe active ton bonus sous 24 h.\n"
+    "En attendant, ne touche pas à ton solde. On continue."
+)
+BONUS_DEJA_DEMANDE = "Ta demande est déjà partie — l'activation prend jusqu'à 24 h."
+# ce que reçoit l'administrateur (Zakaria, puis Sofiane) à chaque demande
+ADMIN_BONUS = "🎁 Demande de bonus — bot {bot}\nQui : {qui}\nÀ activer sous 24 h."
 APRES_AIDE = "Dis-moi quand c'est bon 👇"
 
 # Réponses aux gestes « hors parcours » (contre-audit 2026-09-17 : un vieux

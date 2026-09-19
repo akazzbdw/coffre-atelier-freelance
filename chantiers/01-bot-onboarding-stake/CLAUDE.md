@@ -1,6 +1,6 @@
 # Chantier 01 — Bot Telegram d'accompagnement Stake
 
-**Statut** : brief validé par Zakaria le 2026-09-17 · V1 construite · **EN ATTENTE depuis le 2026-09-19** (décision Zakaria) : rien ne bouge avant l'appel avec Sofiane — lien, VPN, jeton, offre. Point d'arrêt inchangé : 2026-10-01.
+**Statut** : brief validé par Zakaria le 2026-09-17 · V1 construite · **V1.1 construite le 2026-09-19 d'après l'appel avec Sofiane** (deux routes, Windscribe, bonus, un bot par influenceur — 56 tests) · **prête à mettre en ligne** : il manque les deux jetons BotFather (Zakaria les crée, guide ci-dessous). Point d'arrêt inchangé : 2026-10-01.
 **Demandeur** : Sofiane El Mazghi — groupe WhatsApp « Bot telegram », créé le 2026-09-15
 **Payé** : non, service d'ami → reste au Labo (règle de frontière de l'atelier)
 **Ouvert** : 2026-09-17
@@ -33,6 +33,24 @@ Mécanique :
 - **Emplacement vidéo prêt à chaque étape** : le jour où le monteur livre, on dépose les fichiers, le parcours ne bouge pas.
 - « Je bloque » → un message d'aide plus détaillé, puis la possibilité de contacter Sofiane.
 
+## V1.1 — ce que l'appel du 2026-09-19 a changé (Sofiane, 20:35, 4 min 52, transcrit par le 03)
+
+- **Deux routes**, question posée dès le départ : « Je pars de zéro » (VPN + création du compte + vérification + **achat de crypto** + dépôt) ou « J'ai déjà de la crypto » (question VPN, puis compte, vérification, dépôt). Sofiane : « soit il a rien — pas de VPN, pas de compte — soit il a déjà de la crypto ».
+- **VPN = Windscribe** (gratuit, épelé par Sofiane).
+- **Étape « Activer ton bonus »** après le dépôt, d'après le message privé de Sofiane (19/09, 20:40) : bonus 20 € (dépôt ≥ 20 € joué → 20 € de recharge) ou bonus 200 % (dépôt 200–1 000 €, à miser 35 fois, activé à la main sous 24 h, ne pas toucher au solde avant). Bouton **« Je demande mon bonus »** → demande enregistrée en base, l'administrateur (`TELEGRAM_ADMIN_CHAT_ID` : Zakaria d'abord, Sofiane ensuite) reçoit un message et transmet à l'équipe de Sofiane sur WhatsApp (« s'il y a peu de demandes, envoyez-les nous ici ; beaucoup → un bot »). Le bouton « Je passe cette étape » existe.
+- **Un bot par influenceur** (« c'est pas le même canal, pas le même lien ») : deux influenceurs aujourd'hui, **JD** (`stake.jp/?c=YukkMZRj`) et **Clive** (`stake.jp/?c=YRu9cbAn`) — même code, deux conteneurs (`bot-jd`, `bot-clive`), deux `.env`, deux bases.
+- **Qui fait quoi** : Zakaria crée les bots chez @BotFather et transfère la propriété ; **James** (équipe Sofiane) installe le bouton sur chaque canal ; **Julien** (monteur) fait les vidéos. Prochaine étape convenue : Zakaria connecte les bots, montre un faux canal, puis on itère sur leurs retours.
+- Les textes des étapes crypto et bonus sont écrits par Claude d'après ces éléments : **à faire relire par Sofiane** comme les autres (`pipeline/contenu.py`).
+
+### Mise en ligne (guide pour Zakaria)
+
+1. Dans Telegram, ouvrir **@BotFather** → `/newbot` → nom affiché (ex. « Guide Stake JD ») → identifiant finissant par `bot` (ex. `guide_stake_jd_bot`) → BotFather renvoie le **jeton**. Refaire pour Clive.
+2. Optionnel mais propre : `/setdescription`, `/setuserpic` (photo fournie par Sofiane).
+3. Sur le VPS, dans `pipeline/` du chantier : copier `.env.example` en `.env.jd` et `.env.clive`, remplir `BOT_NOM`, `TELEGRAM_BOT_TOKEN`, `STAKE_LIEN_PARRAINAGE`, `TELEGRAM_ADMIN_CHAT_ID` (l'identifiant Telegram de Zakaria, celui que connaît le bot 05).
+4. Ajouter le dossier à `PROJECTS` du veilleur `~/autodeploy.sh`, pousser : les deux conteneurs se construisent.
+5. Preuve : `/start` sur chaque bot depuis le téléphone, une demande de bonus → le message admin arrive.
+6. Plus tard, quand Sofiane répond : BotFather → `/mybots` → le bot → **Transfer Ownership** ; `TELEGRAM_ADMIN_CHAT_ID` passe à son identifiant.
+
 ## Exclu volontairement de la V1
 
 - Les vidéos elles-mêmes (elles dépendent du monteur — leur emplacement est prêt, la V1 ne les attend pas).
@@ -42,11 +60,12 @@ Mécanique :
 
 ## Ce qu'on attend de Sofiane (bloquant pour la mise en ligne, pas pour la construction)
 
-- [ ] **Quel lien de parrainage** : il en a envoyé **deux** en privé le 17/09 (ceux de deux influenceurs, « JD » et « Clive »), aucun n'est le sien — le bot n'en prend qu'un, Sofiane tranche. Les captures envoyées avec sont des photos de ces influenceurs, rien de plus (Zakaria, 19/09).
+- [x] ~~**Quel lien de parrainage**~~ → **tranché à l'appel du 19/09 : les deux, un bot par influenceur** (JD et Clive, liens reçus le 17/09).
 - [x] ~~Le bot créé chez @BotFather sur son compte~~ → **décision Zakaria du 2026-09-19 : Zakaria crée le bot chez @BotFather lui-même pour débloquer (Sofiane injoignable depuis le 17/09 23:03), puis lui transfère la propriété** (BotFather → `/mybots` → Transfer Ownership). Le garde-fou « le bot appartient à Sofiane » tient : c'est l'état d'arrivée, pas celui de départ.
-- [ ] **Quel VPN gratuit** il recommande (l'étape 0 reste vide sans ça).
-- [ ] L'« offre à caler le long du processus » qu'il a proposé d'envoyer (17/09, 14:44) — pas reçue, pas prévue dans le parcours : à voir quand elle arrive.
-- [ ] Sa relecture des textes des 5 étapes (écrits par Claude, validés par Zakaria, envoyés pour accord).
+- [x] ~~**Quel VPN gratuit**~~ → **Windscribe** (appel du 19/09).
+- [x] ~~L'« offre à caler le long du processus »~~ → **reçue le 19/09 (20:40) : les deux bonus de bienvenue**, devenus l'étape « Activer ton bonus ».
+- [ ] Sa relecture des textes des 7 étapes (écrits par Claude, validés par Zakaria) — surtout crypto et bonus, écrits d'après l'appel.
+- [ ] Son identifiant Telegram, le jour du transfert (pour recevoir les demandes de bonus).
 
 ## Ce qu'on attend du monteur
 
@@ -80,6 +99,7 @@ Si Sofiane ne fournit ni lien de parrainage ni jeton **avant le 2026-10-01**, le
 | 2026-09-17 | Brief écrit d'après le groupe WhatsApp (lu via le pont OpenWA du 05). En attente de validation Zakaria. |
 | 2026-09-17 | Parcours construit et prouvé au terminal (15 tests). En attente des trois réponses de Sofiane pour la mise en ligne. |
 | 2026-09-19 | **Point mise en ligne** : code prêt (40 tests verts), rien sur le VPS (`.env` absent, pas dans le veilleur). Sofiane injoignable depuis le 17/09 (appel du 19/09 sans réponse). **Décision Zakaria : il crée le jeton chez @BotFather lui-même, propriété transférée à Sofiane ensuite.** Restent à trancher par Sofiane : lequel des deux liens de parrainage (JD ou Clive), le VPN. |
+| 2026-09-19 | **Appel Sofiane 20:35 (après relance sur le groupe à 20:34, message envoyé par le bot 05 avec mention)** → **V1.1 construite le soir même** : question de départ (deux routes), étape crypto pour les débutants, étape bonus (deux bonus, demande → admin Telegram), Windscribe, un bot par influenceur (compose à deux services, `BOT_NOM`), colonne `debutant` ajoutée sans perte à une base V1. 56 tests verts (parcours + handlers, bibliothèque Telegram dans un venv de test), parcours débutant rejoué au terminal. Reste : les deux jetons BotFather (Zakaria). |
 | 2026-09-17 | **Contre-audit passé et défauts corrigés** (6 sérieux, tous dans `bot.py`, qu'aucun test ne touchait). Les décisions du parcours sont redescendues dans `parcours.py`, sous tests ; `bot.py` a les siens (faux Telegram). 40 tests. |
 
 ## Ce que le contre-audit a trouvé (2026-09-17) et ce qu'on en a fait

@@ -34,6 +34,7 @@ class FauxBot:
 
     async def send_message(self, chat_id, text, parse_mode=None, reply_markup=None):
         self.envois.append(("texte", text, reply_markup))
+        self.destinataires = getattr(self, "destinataires", []) + [chat_id]
 
     async def send_video(self, chat_id, video, caption=None, parse_mode=None,
                          reply_markup=None):
@@ -73,7 +74,8 @@ class FausseRequete:
 class FauxUpdate:
     def __init__(self, personne="42", requete=None):
         self.callback_query = requete
-        self.effective_user = type("U", (), {"id": personne})()
+        self.effective_user = type("U", (), {"id": personne, "username": "toto",
+                                             "first_name": "Toto"})()
         self.effective_chat = type("C", (), {"id": 1})()
         self.effective_message = type("M", (), {})()
 
@@ -102,8 +104,63 @@ class TestHandlers(unittest.TestCase):
     def test_start_repond_meme_sans_message_accessible(self):
         ctx = FauxCtx()
         self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
-        self.assertGreaterEqual(len(ctx.bot.envois), 2)      # accueil + question vpn
+        self.assertGreaterEqual(len(ctx.bot.envois), 2)      # accueil + question de départ
         self.assertIsNotNone(ctx.bot.envois[-1][2])          # avec des boutons
+
+    def test_partir_de_zero_sert_directement_le_vpn(self):
+        ctx = FauxCtx()
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("depart:zero")), ctx))
+        self.assertIn("Installer le VPN", ctx.bot.envois[-1][1])
+        self.assertIn("UnVPN", ctx.bot.envois[-1][1])
+
+    def test_avoir_de_la_crypto_pose_la_question_vpn_puis_sert_le_compte(self):
+        ctx = FauxCtx()
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("depart:crypto")), ctx))
+        self.assertIn("VPN", ctx.bot.envois[-1][1])
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("vpn:non")), ctx))
+        self.assertIn("Créer ton compte", ctx.bot.envois[-1][1])
+
+    def test_un_start_apres_la_question_de_depart_repose_la_question_vpn(self):
+        ctx = FauxCtx()
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("depart:crypto")), ctx))
+        ctx2 = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx2))
+        self.assertIn("VPN", ctx2.bot.envois[-1][1])
+        self.assertIsNotNone(ctx2.bot.envois[-1][2])
+
+    def test_demande_de_bonus_previent_l_admin_et_avance(self):
+        os.environ["TELEGRAM_ADMIN_CHAT_ID"] = "999"
+        os.environ["BOT_NOM"] = "JD"
+        try:
+            cx = parcours.ouvrir()
+            parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+            cx.close()
+            ctx = FauxCtx()
+            self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("bonus:demande")), ctx))
+            self.assertIn(999, ctx.bot.destinataires)
+            admin = [e for e, d in zip(ctx.bot.envois, ctx.bot.destinataires) if d == 999][0]
+            self.assertIn("JD", admin[1]); self.assertIn("@toto", admin[1])
+            self.assertIn("Tes premiers pas", ctx.bot.envois[-1][1])
+        finally:
+            os.environ.pop("TELEGRAM_ADMIN_CHAT_ID", None); os.environ.pop("BOT_NOM", None)
+
+    def test_demande_de_bonus_sans_admin_ne_bloque_pas_la_personne(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("bonus:demande")), ctx))
+        self.assertIn("Tes premiers pas", ctx.bot.envois[-1][1])
+        self.assertEqual(len(parcours.demandes_bonus()), 1)
+
+    def test_l_etape_bonus_a_son_propre_clavier(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        boutons = [b.callback_data for ligne in ctx.bot.envois[-1][2].inline_keyboard for b in ligne]
+        self.assertIn("bonus:demande", boutons); self.assertIn("fait:bonus", boutons)
 
     def test_bouton_sur_message_trop_vieux_repond_quand_meme(self):
         """Le scénario phare : la personne revient 3 jours après et clique

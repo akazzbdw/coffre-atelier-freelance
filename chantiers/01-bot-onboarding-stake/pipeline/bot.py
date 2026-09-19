@@ -8,7 +8,10 @@ n'héberge que l'exécution — garde-fou du CLAUDE.md du chantier.
 
 Env requis : TELEGRAM_BOT_TOKEN, STAKE_LIEN_PARRAINAGE, VPN_NOM.
 Env optionnel : MODE_TEST=1 (autorise le démarrage sans lien réel et montre
-les emplacements vidéo), VIDEOS_JSON (chemin du fichier des vidéos).
+les emplacements vidéo), VIDEOS_JSON (chemin du fichier des vidéos),
+BOT_NOM (l'influenceur servi — un bot par influenceur, V1.1),
+TELEGRAM_ADMIN_CHAT_ID (qui reçoit les demandes de bonus : Zakaria d'abord,
+Sofiane quand il aura le bot — sans lui, la demande est seulement tracée).
 
 Durci le 2026-09-17 après contre-audit (SOP-01 Phase 5). Trois règles tenues
 partout dans ce fichier :
@@ -74,6 +77,23 @@ def clavier_etape(etape_id: str) -> InlineKeyboardMarkup:
     ]])
 
 
+def clavier_depart() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(contenu.BOUTON_ZERO, callback_data="depart:zero")],
+        [InlineKeyboardButton(contenu.BOUTON_CRYPTO, callback_data="depart:crypto")]])
+
+
+def clavier_bonus() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(contenu.BOUTON_BONUS, callback_data="bonus:demande")],
+        [InlineKeyboardButton(contenu.BOUTON_PASSER, callback_data="fait:bonus"),
+         InlineKeyboardButton(contenu.BOUTON_BLOQUE, callback_data="bloque:bonus")]])
+
+
+def clavier_pour(etape_id: str) -> InlineKeyboardMarkup:
+    return clavier_bonus() if etape_id == "bonus" else clavier_etape(etape_id)
+
+
 def clavier_vpn(complet: bool = True) -> InlineKeyboardMarkup:
     lignes = [[InlineKeyboardButton(contenu.BOUTON_OUI, callback_data="vpn:oui")],
               [InlineKeyboardButton(contenu.BOUTON_NON, callback_data="vpn:non")]]
@@ -101,10 +121,32 @@ async def retirer_clavier(requete) -> None:
         pass          # message trop vieux ou déjà édité — sans conséquence
 
 
+async def notifier_admin(ctx, texte: str) -> None:
+    """Prévenir l'administrateur (demande de bonus). Jamais bloquant : sans
+    identifiant, ou si Telegram refuse, la demande reste tracée en base et
+    en boîte noire — elle n'est pas perdue, elle est juste à aller lire."""
+    admin = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+    if not admin:
+        parcours.tracer("bonus-non-notifie", "TELEGRAM_ADMIN_CHAT_ID absent")
+        return
+    try:
+        await ctx.bot.send_message(chat_id=int(admin), text=texte)
+    except (TelegramError, ValueError) as e:
+        log.error("admin injoignable (%s)", e)
+        parcours.tracer("bonus-non-notifie", f"admin injoignable : {e}")
+
+
+def nom_lisible(user) -> str:
+    pseudo = getattr(user, "username", None)
+    nom = " ".join(x for x in (getattr(user, "first_name", None),
+                               getattr(user, "last_name", None)) if x)
+    return (f"@{pseudo}" if pseudo else nom or "?") + f" (id {getattr(user, 'id', '?')})"
+
+
 async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
-                        vpn_demande: bool) -> None:
+                        etat: dict) -> None:
     lien, vpn_nom = parcours.config()
-    etapes = parcours.etapes_pour(vpn_demande)
+    etapes = parcours.route(etat)
     etape = parcours.etape_par_id(etapes, etape_id)
     if etape is None:
         # ne peut plus arriver (etat_utilisable répare) — mais on ne se tait pas
@@ -120,7 +162,7 @@ async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
             await ctx.bot.send_video(chat_id=chat_id, video=fichier,
                                      caption=en_html(texte),
                                      parse_mode=ParseMode.HTML,
-                                     reply_markup=clavier_etape(etape_id))
+                                     reply_markup=clavier_pour(etape_id))
             return
         except TelegramError as e:
             # une vidéo qui ne part pas ne doit pas priver de l'étape
@@ -128,7 +170,7 @@ async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
             parcours.tracer("bot-echec", f"vidéo {etape_id} refusée : {e}")
     if MODE_TEST:
         texte += f"\n\n[ 🎥 emplacement vidéo prêt — {etape_id} ]"
-    await dire(ctx, chat_id, texte, clavier_etape(etape_id))
+    await dire(ctx, chat_id, texte, clavier_pour(etape_id))
 
 
 async def demarrer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -147,13 +189,15 @@ async def demarrer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if etat["etape"]:
         await dire(ctx, chat_id, contenu.RETOUR)
         parcours.tracer("parcours-reprise", personne)
-        await envoyer_etape(ctx, chat_id, personne, etat["etape"],
-                            bool(etat["vpn"]))
+        await envoyer_etape(ctx, chat_id, personne, etat["etape"], etat)
+        return
+    if etat["debutant"] is False:      # a répondu « déjà de la crypto », pas encore au VPN
+        await dire(ctx, chat_id, contenu.QUESTION_VPN, clavier_vpn())
         return
 
     parcours.tracer("parcours-debut", personne)
     await dire(ctx, chat_id, contenu.ACCUEIL)
-    await dire(ctx, chat_id, contenu.QUESTION_VPN, clavier_vpn())
+    await dire(ctx, chat_id, contenu.QUESTION_DEPART, clavier_depart())
 
 
 async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -166,6 +210,20 @@ async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     personne = str(update.effective_user.id)
     action, _, valeur = (requete.data or "").partition(":")
 
+    if action == "depart":
+        suite, etape = parcours.choisir_depart(personne, valeur == "zero")
+        await retirer_clavier(requete)
+        if suite == "ignore":
+            await dire(ctx, chat_id, contenu.DEJA_REPONDU)
+            return
+        if suite == "vpn":
+            await dire(ctx, chat_id, contenu.QUESTION_VPN, clavier_vpn())
+            return
+        with parcours.connexion() as cx:
+            etat = parcours.lire_etat(cx, personne)
+        await envoyer_etape(ctx, chat_id, personne, etape, etat)
+        return
+
     if action == "vpn":
         if valeur == "quoi":
             await dire(ctx, chat_id, contenu.AIDE_VPN, clavier_vpn(complet=False))
@@ -175,8 +233,31 @@ async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         if suite == "ignore":       # vieux bouton : on ne renvoie personne au début
             await dire(ctx, chat_id, contenu.DEJA_REPONDU)
             return
-        await envoyer_etape(ctx, chat_id, personne, etape,
-                            valeur == "oui")
+        with parcours.connexion() as cx:
+            etat = parcours.lire_etat(cx, personne)
+        await envoyer_etape(ctx, chat_id, personne, etape, etat)
+        return
+
+    if action == "bonus":
+        suite, etape = parcours.demander_bonus(personne, nom_lisible(update.effective_user))
+        if suite == "ignore":
+            await dire(ctx, chat_id, contenu.DEJA_VALIDE)
+            return
+        if suite == "deja":
+            await dire(ctx, chat_id, contenu.BONUS_DEJA_DEMANDE, clavier_bonus())
+            return
+        await retirer_clavier(requete)
+        await notifier_admin(ctx, contenu.ADMIN_BONUS
+                             .replace("{bot}", os.environ.get("BOT_NOM", "?"))
+                             .replace("{qui}", nom_lisible(update.effective_user)))
+        await dire(ctx, chat_id, contenu.BONUS_DEMANDE_OK)
+        if etape is None:
+            parcours.tracer("parcours-fin", personne)
+            await dire(ctx, chat_id, contenu.FIN)
+            return
+        with parcours.connexion() as cx:
+            etat = parcours.lire_etat(cx, personne)
+        await envoyer_etape(ctx, chat_id, personne, etape, etat)
         return
 
     if action == "bloque":
@@ -185,7 +266,7 @@ async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await dire(ctx, chat_id, contenu.PLUS_DANS_LE_PARCOURS)
             return
         etape_id, texte = aide
-        await dire(ctx, chat_id, texte, clavier_etape(etape_id))
+        await dire(ctx, chat_id, texte, clavier_pour(etape_id))
         await dire(ctx, chat_id, contenu.APRES_AIDE)
         parcours.tracer("parcours-blocage", f"{personne} · {etape_id}")
         return
@@ -201,8 +282,8 @@ async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await dire(ctx, chat_id, contenu.FIN)
             return
         with parcours.connexion() as cx:
-            vpn = bool(parcours.lire_etat(cx, personne)["vpn"])
-        await envoyer_etape(ctx, chat_id, personne, etape, vpn)
+            etat = parcours.lire_etat(cx, personne)
+        await envoyer_etape(ctx, chat_id, personne, etape, etat)
 
 
 async def aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -212,7 +293,7 @@ async def aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await dire(ctx, chat_id, contenu.PLUS_DANS_LE_PARCOURS)
         return
     etape_id, texte = aide_
-    await dire(ctx, chat_id, texte, clavier_etape(etape_id))
+    await dire(ctx, chat_id, texte, clavier_pour(etape_id))
 
 
 async def recommencer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -260,8 +341,11 @@ def main() -> int:
     app.add_handler(CommandHandler("recommencer", recommencer))
     app.add_handler(CallbackQueryHandler(bouton))
     app.add_error_handler(incident)
-    log.info("Bot d'accompagnement en écoute%s", " (MODE_TEST)" if MODE_TEST else "")
-    parcours.tracer("bot-demarrage", "mode test" if MODE_TEST else "réel")
+    nom = os.environ.get("BOT_NOM", "?")
+    if not os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip():
+        log.warning("TELEGRAM_ADMIN_CHAT_ID absent — les demandes de bonus seront seulement tracées")
+    log.info("Bot d'accompagnement [%s] en écoute%s", nom, " (MODE_TEST)" if MODE_TEST else "")
+    parcours.tracer("bot-demarrage", f"{nom} · " + ("mode test" if MODE_TEST else "réel"))
     app.run_polling()
     return 0
 

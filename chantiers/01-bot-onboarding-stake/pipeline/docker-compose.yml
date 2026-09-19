@@ -1,31 +1,47 @@
-# Bot d'accompagnement Stake (chantier 01 de l'atelier freelance).
-# PAS ENCORE DÉPLOYÉ : il attend le jeton créé par Sofiane sur SON compte
-# @BotFather, plus son lien de parrainage et le nom du VPN (voir le CLAUDE.md
-# du chantier). Secrets dans .env, jamais commité.
-# Mise en ligne, le jour venu : ajouter le dossier à PROJECTS du veilleur
-# ~/autodeploy.sh sur le VPS, puis pousser.
+# Bots d'accompagnement Stake (chantier 01 de l'atelier freelance).
+# V1.1 (appel Sofiane du 2026-09-19) : UN BOT PAR INFLUENCEUR — même code,
+# même image, un conteneur par influenceur avec son jeton, son lien de
+# parrainage et sa propre base de progression. Secrets dans .env.jd et
+# .env.clive (modèle : .env.example), jamais commités.
+# Mise en ligne : ajouter le dossier à PROJECTS du veilleur ~/autodeploy.sh
+# sur le VPS, puis pousser.
+
+x-bot: &bot
+  build:
+    context: ..
+    dockerfile: pipeline/Dockerfile
+    args:
+      LABO_FUSEAU: ${LABO_FUSEAU:-Europe/Zurich}
+  image: labo/bot-onboarding-stake
+  restart: unless-stopped
+  volumes:
+    # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
+    # raison de voir le reste du Labo (il sert des inconnus).
+    # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
+    # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
+    # la couche éphémère du conteneur et mouraient à chaque redéploiement —
+    # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
+    - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
+    - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
 
 services:
-  bot-stake:
-    build:
-      context: ..
-      dockerfile: pipeline/Dockerfile
-      args:
-        LABO_FUSEAU: ${LABO_FUSEAU:-Europe/Zurich}
-    image: labo/bot-onboarding-stake
-    container_name: bot-onboarding-stake
-    restart: unless-stopped
-    env_file: .env
+  bot-jd:
+    <<: *bot
+    container_name: bot-stake-jd
+    env_file: .env.jd
     volumes:
-      - bot-stake-data:/data
-      # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
-      # raison de voir le reste du Labo (il sert des inconnus).
-      # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
-      # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
-      # la couche éphémère du conteneur et mouraient à chaque redéploiement —
-      # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
+      - bot-stake-jd:/data
+      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
+      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
+  bot-clive:
+    <<: *bot
+    container_name: bot-stake-clive
+    env_file: .env.clive
+    volumes:
+      - bot-stake-clive:/data
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
 
 volumes:
-  bot-stake-data:
+  bot-stake-jd:
+  bot-stake-clive:

@@ -48,7 +48,18 @@ def ouvrir(db_path: Path | None = None) -> sqlite3.Connection:
         " vpn INTEGER,"          # 1 = a demandé le VPN, 0 = non, NULL = pas encore répondu
         " etape TEXT,"           # id de l'étape en cours ; NULL = parcours fini
         " fini INTEGER DEFAULT 0,"
+        " debutant INTEGER,"     # V1.1 : 1 = part de zéro (VPN + crypto), 0 = a déjà de la crypto, NULL = pas répondu
         " maj TEXT)"
+    )
+    # base née en V1 (sans la colonne) : on l'ajoute sans rien perdre
+    colonnes = {c[1] for c in cx.execute("PRAGMA table_info(progression)")}
+    if "debutant" not in colonnes:
+        cx.execute("ALTER TABLE progression ADD COLUMN debutant INTEGER")
+    cx.execute(
+        "CREATE TABLE IF NOT EXISTS bonus ("
+        " personne TEXT PRIMARY KEY,"
+        " qui TEXT,"             # nom Telegram lisible, pour l'équipe qui active
+        " demande_le TEXT)"
     )
     return cx
 
@@ -64,10 +75,12 @@ def connexion():
         cx.close()
 
 
-def etapes_pour(vpn: bool) -> list[dict]:
-    """Les étapes servies à cette personne — l'étape VPN n'existe que pour qui
-    a dit en avoir besoin (branche optionnelle du brief)."""
-    return [e for e in contenu.ETAPES if vpn or not e.get("optionnelle")]
+def etapes_pour(vpn: bool, debutant: bool = False) -> list[dict]:
+    """Les étapes servies à cette personne : l'étape VPN n'existe que pour qui
+    en a besoin (branche optionnelle du brief), l'étape crypto que pour qui
+    part de zéro (V1.1, appel Sofiane du 2026-09-19)."""
+    return [e for e in contenu.ETAPES
+            if (vpn or not e.get("optionnelle")) and (debutant or not e.get("debutants"))]
 
 
 def remplir(texte: str, lien: str, vpn: str) -> str:
@@ -97,28 +110,37 @@ def rendu(etape: dict, lien: str, vpn: str, position: tuple[int, int]) -> str:
 
 def lire_etat(cx: sqlite3.Connection, personne: str) -> dict:
     ligne = cx.execute(
-        "SELECT vpn, etape, fini FROM progression WHERE personne = ?",
+        "SELECT vpn, etape, fini, debutant FROM progression WHERE personne = ?",
         (str(personne),)).fetchone()
     if not ligne:
-        return {"vpn": None, "etape": None, "fini": False, "connu": False}
+        return {"vpn": None, "etape": None, "fini": False, "debutant": None, "connu": False}
     return {"vpn": None if ligne[0] is None else bool(ligne[0]),
-            "etape": ligne[1], "fini": bool(ligne[2]), "connu": True}
+            "etape": ligne[1], "fini": bool(ligne[2]),
+            "debutant": None if ligne[3] is None else bool(ligne[3]), "connu": True}
 
 
 def ecrire_etat(cx: sqlite3.Connection, personne: str, *, vpn=None,
-                etape="__inchange__", fini=None) -> None:
+                etape="__inchange__", fini=None, debutant=None) -> None:
     etat = lire_etat(cx, personne)
     vpn_v = etat["vpn"] if vpn is None else vpn
+    debutant_v = etat["debutant"] if debutant is None else debutant
     etape_v = etat["etape"] if etape == "__inchange__" else etape
     fini_v = etat["fini"] if fini is None else fini
     cx.execute(
-        "INSERT INTO progression (personne, vpn, etape, fini, maj)"
-        " VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO progression (personne, vpn, etape, fini, debutant, maj)"
+        " VALUES (?, ?, ?, ?, ?, ?)"
         " ON CONFLICT(personne) DO UPDATE SET vpn=excluded.vpn,"
-        " etape=excluded.etape, fini=excluded.fini, maj=excluded.maj",
+        " etape=excluded.etape, fini=excluded.fini, debutant=excluded.debutant,"
+        " maj=excluded.maj",
         (str(personne), None if vpn_v is None else int(vpn_v), etape_v,
-         int(bool(fini_v)), datetime.now(timezone.utc).isoformat(timespec="seconds")))
+         int(bool(fini_v)), None if debutant_v is None else int(debutant_v),
+         datetime.now(timezone.utc).isoformat(timespec="seconds")))
     cx.commit()
+
+
+def route(etat: dict) -> list[dict]:
+    """Les étapes de CETTE personne, d'après son état en base."""
+    return etapes_pour(bool(etat["vpn"]), bool(etat["debutant"]))
 
 
 def etape_par_id(etapes: list[dict], etape_id: str) -> dict | None:
@@ -161,11 +183,28 @@ def etat_utilisable(cx, personne: str) -> dict:
     """
     etat = lire_etat(cx, personne)
     etat["repare"] = False
-    if etat["etape"] and not etape_par_id(etapes_pour(bool(etat["vpn"])), etat["etape"]):
-        etat["etape"] = etapes_pour(bool(etat["vpn"]))[0]["id"]
+    if etat["etape"] and not etape_par_id(route(etat), etat["etape"]):
+        etat["etape"] = route(etat)[0]["id"]
         etat["repare"] = True
         ecrire_etat(cx, personne, etape=etat["etape"])
     return etat
+
+
+def choisir_depart(personne: str, debutant: bool) -> tuple[str, str | None]:
+    """Réponse à « où tu en es ? » (V1.1). Qui part de zéro reçoit d'office la
+    route complète (VPN + crypto) : ("suite", première étape). Qui a déjà de
+    la crypto passe par la question du VPN : ("vpn", None).
+    ("ignore", None) si la question est déjà dépassée (vieux bouton)."""
+    with connexion() as cx:
+        etat = lire_etat(cx, personne)
+        if etat["fini"] or etat["etape"] or etat["debutant"] is not None:
+            return ("ignore", None)
+        if debutant:
+            premiere = etapes_pour(True, True)[0]["id"]
+            ecrire_etat(cx, personne, vpn=True, debutant=True, etape=premiere)
+            return ("suite", premiere)
+        ecrire_etat(cx, personne, debutant=False)
+        return ("vpn", None)
 
 
 def choisir_vpn(personne: str, besoin: bool) -> tuple[str, str | None]:
@@ -174,12 +213,13 @@ def choisir_vpn(personne: str, besoin: bool) -> tuple[str, str | None]:
     Ignorée si la personne a déjà dépassé la question : sans ça, un clic sur
     le tout premier message (resté dans le fil) la renvoyait au début, ou
     créait un état « fini ET à l'étape 1 » impossible (contre-audit).
+    Ignorée aussi tant que la question de départ n'a pas eu de réponse (V1.1).
     """
     with connexion() as cx:
         etat = lire_etat(cx, personne)
-        if etat["fini"] or etat["etape"]:
+        if etat["fini"] or etat["etape"] or etat["debutant"] is None:
             return ("ignore", None)
-        premiere = etapes_pour(besoin)[0]["id"]
+        premiere = etapes_pour(besoin, bool(etat["debutant"]))[0]["id"]
         ecrire_etat(cx, personne, vpn=besoin, etape=premiere)
         return ("suite", premiere)
 
@@ -196,13 +236,39 @@ def avancer(personne: str, etape_cliquee: str) -> tuple[str, str | None]:
         etat = etat_utilisable(cx, personne)
         if etat["fini"] or not etat["etape"] or etape_cliquee != etat["etape"]:
             return ("ignore", None)
-        etapes = etapes_pour(bool(etat["vpn"]))
+        etapes = route(etat)
         suite = suivante(etapes, etat["etape"])
         if suite is None:
             ecrire_etat(cx, personne, etape=None, fini=True)
             return ("fini", None)
         ecrire_etat(cx, personne, etape=suite)
         return ("suite", suite)
+
+
+def demander_bonus(personne: str, qui: str = "") -> tuple[str, str | None]:
+    """« Je demande mon bonus » (V1.1). ("nouvelle", étape suivante) la première
+    fois — la demande est enregistrée et le parcours avance ; ("deja", None)
+    si elle est déjà partie ; ("ignore", None) hors de l'étape bonus (vieux
+    bouton) — l'état ne bouge pas, comme pour tout clic périmé."""
+    with connexion() as cx:
+        etat = etat_utilisable(cx, personne)
+        if etat["fini"] or etat["etape"] != "bonus":
+            return ("ignore", None)
+        if cx.execute("SELECT 1 FROM bonus WHERE personne = ?", (str(personne),)).fetchone():
+            return ("deja", None)
+        cx.execute("INSERT INTO bonus (personne, qui, demande_le) VALUES (?, ?, ?)",
+                   (str(personne), qui, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+        cx.commit()
+        suite = suivante(route(etat), "bonus")
+        ecrire_etat(cx, personne, etape=suite, fini=suite is None)
+        tracer("bonus-demande", f"{personne} · {qui}")
+        return ("nouvelle", suite)
+
+
+def demandes_bonus() -> list[tuple[str, str, str]]:
+    """Les demandes enregistrées (personne, qui, quand) — pour l'équipe."""
+    with connexion() as cx:
+        return cx.execute("SELECT personne, qui, demande_le FROM bonus ORDER BY demande_le").fetchall()
 
 
 def aide_courante(personne: str) -> tuple[str, str] | None:
@@ -212,7 +278,7 @@ def aide_courante(personne: str) -> tuple[str, str] | None:
         etat = etat_utilisable(cx, personne)
         if etat["fini"] or not etat["etape"]:
             return None
-        etape = etape_par_id(etapes_pour(bool(etat["vpn"])), etat["etape"])
+        etape = etape_par_id(route(etat), etat["etape"])
         if etape is None:           # ceinture : etat_utilisable a déjà réparé
             return None
         return (etat["etape"], aide_rendue(etape, lien, vpn))
@@ -281,25 +347,34 @@ def simuler(entrees=None, sortie=print) -> list[str]:
         return input(f"{invite} > ").strip().lower()
 
     sortie(contenu.ACCUEIL + "\n")
-    sortie(contenu.QUESTION_VPN)
-    rep = demander("[o]ui / [n]on / [q]u'est-ce que c'est")
-    if rep.startswith("q"):
-        sortie("\n" + contenu.AIDE_VPN + "\n")
-        rep = demander("[o]ui / [n]on")
-    besoin_vpn = rep.startswith("o")
+    sortie(contenu.QUESTION_DEPART)
+    debutant = demander("[z]éro / [c]rypto déjà").startswith("z")
+    besoin_vpn = True
+    if not debutant:
+        sortie("\n" + contenu.QUESTION_VPN)
+        rep = demander("[o]ui / [n]on / [q]u'est-ce que c'est")
+        if rep.startswith("q"):
+            sortie("\n" + contenu.AIDE_VPN + "\n")
+            rep = demander("[o]ui / [n]on")
+        besoin_vpn = rep.startswith("o")
 
-    etapes = etapes_pour(besoin_vpn)
+    etapes = etapes_pour(besoin_vpn, debutant)
     vues = []
     for etape in etapes:
         sortie("\n" + "─" * 46)
         sortie(rendu(etape, lien, vpn, position(etapes, etape["id"])))
         sortie(f"[ 🎥 emplacement vidéo — {etape['id']} ]")
         vues.append(etape["id"])
-        rep = demander(f"{contenu.BOUTON_FAIT} [f] / {contenu.BOUTON_BLOQUE} [b]")
+        if etape["id"] == "bonus":
+            rep = demander(f"{contenu.BOUTON_BONUS} [d] / {contenu.BOUTON_PASSER} [f] / {contenu.BOUTON_BLOQUE} [b]")
+        else:
+            rep = demander(f"{contenu.BOUTON_FAIT} [f] / {contenu.BOUTON_BLOQUE} [b]")
         if rep.startswith("b"):
             sortie("\n" + etape["aide"])
             sortie(contenu.APRES_AIDE)
-            demander(contenu.BOUTON_FAIT + " [f]")
+            rep = demander(contenu.BOUTON_FAIT + " [f]" + (" / " + contenu.BOUTON_BONUS + " [d]" if etape["id"] == "bonus" else ""))
+        if rep.startswith("d") and etape["id"] == "bonus":
+            sortie("\n" + contenu.BONUS_DEMANDE_OK)
     sortie("\n" + contenu.FIN)
     return vues
 
