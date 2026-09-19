@@ -51,6 +51,10 @@ Mécanique :
 5. Preuve : `/start` sur chaque bot depuis le téléphone, une demande de bonus → le message admin arrive.
 6. Plus tard, quand Sofiane répond : BotFather → `/mybots` → le bot → **Transfer Ownership** ; `TELEGRAM_ADMIN_CHAT_ID` passe à son identifiant.
 
+### Après validation : tout passe chez Sofiane (décision Zakaria, 2026-09-19)
+
+Zakaria : « une fois livré, ça ne passe plus par moi ». Le seul chemin qui tient cette phrase : **Sofiane héberge lui-même**. L'ordre : ① mise en ligne sur le VPS Labo pour la démo et les retours ; ② validation par Sofiane ; ③ Sofiane prend un petit serveur (VPS à ~5 €/mois) ; ④ Claude livre le code prêt à lancer + un mode d'emploi d'une page (`sorties/`), un contact technique chez lui lance — ou Zakaria le fait une fois sur le serveur de Sofiane, puis n'y touche plus ; ⑤ transfert des deux bots dans BotFather, `TELEGRAM_ADMIN_CHAT_ID` = Sofiane, les conteneurs du Labo sont éteints. Refusé : rester hébergeur en « libre-service » (vidéos et textes depuis Telegram) — plus vite livré, mais Zakaria resterait hébergeur d'une activité qui n'est pas la sienne.
+
 ## Exclu volontairement de la V1
 
 - Les vidéos elles-mêmes (elles dépendent du monteur — leur emplacement est prêt, la V1 ne les attend pas).
