@@ -1,6 +1,6 @@
 # Chantier 01 — Bot Telegram d'accompagnement Stake
 
-**Statut** : brief validé par Zakaria le 2026-09-17 · V1 construite, en attente des réponses de Sofiane pour la mise en ligne
+**Statut** : brief validé par Zakaria le 2026-09-17 · V1 construite · **EN ATTENTE depuis le 2026-09-19** (décision Zakaria) : rien ne bouge avant l'appel avec Sofiane — lien, VPN, jeton, offre. Point d'arrêt inchangé : 2026-10-01.
 **Demandeur** : Sofiane El Mazghi — groupe WhatsApp « Bot telegram », créé le 2026-09-15
 **Payé** : non, service d'ami → reste au Labo (règle de frontière de l'atelier)
 **Ouvert** : 2026-09-17

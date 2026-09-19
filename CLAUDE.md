@@ -34,7 +34,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 | Qui | Demande | Payé ? | Statut | Prochaine action |
 |---|---|---|---|---|
-| Sofiane El Mazghi | Bot Telegram qui accompagne pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | en cours | répondre au groupe WhatsApp : débloquer le monteur + demander lien de parrainage, jeton du bot, VPN |
+| Sofiane El Mazghi | Bot Telegram qui accompagne pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en attente** (19/09) | attendre l'appel de Sofiane (injoignable depuis le 17/09) : lien à retenir, VPN, offre ; puis jeton BotFather par Zakaria et mise en ligne |
 
 ## Carte du projet
 
