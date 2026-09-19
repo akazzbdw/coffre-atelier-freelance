@@ -42,9 +42,10 @@ Mécanique :
 
 ## Ce qu'on attend de Sofiane (bloquant pour la mise en ligne, pas pour la construction)
 
-- [ ] Son **lien de parrainage Stake**.
-- [ ] Le bot créé chez **@BotFather sur son compte** (nom + @ + image), et le **jeton** transmis à Zakaria en privé — jamais dans le groupe.
+- [ ] **Quel lien de parrainage** : il en a envoyé **deux** en privé le 17/09 (ceux de deux influenceurs, « JD » et « Clive »), aucun n'est le sien — le bot n'en prend qu'un, Sofiane tranche. Les captures envoyées avec sont des photos de ces influenceurs, rien de plus (Zakaria, 19/09).
+- [x] ~~Le bot créé chez @BotFather sur son compte~~ → **décision Zakaria du 2026-09-19 : Zakaria crée le bot chez @BotFather lui-même pour débloquer (Sofiane injoignable depuis le 17/09 23:03), puis lui transfère la propriété** (BotFather → `/mybots` → Transfer Ownership). Le garde-fou « le bot appartient à Sofiane » tient : c'est l'état d'arrivée, pas celui de départ.
 - [ ] **Quel VPN gratuit** il recommande (l'étape 0 reste vide sans ça).
+- [ ] L'« offre à caler le long du processus » qu'il a proposé d'envoyer (17/09, 14:44) — pas reçue, pas prévue dans le parcours : à voir quand elle arrive.
 - [ ] Sa relecture des textes des 5 étapes (écrits par Claude, validés par Zakaria, envoyés pour accord).
 
 ## Ce qu'on attend du monteur
@@ -54,7 +55,7 @@ Mécanique :
 
 ## Garde-fous
 
-- **Le bot appartient à Sofiane** : créé sur son compte, à son nom. Zakaria n'héberge que l'exécution. Rien lié au casino n'est enregistré au nom de Zakaria.
+- **Le bot appartient à Sofiane** : à son nom, sur son compte — créé par Zakaria le temps de le mettre en ligne, **propriété transférée à Sofiane dès qu'il répond** (décision 2026-09-19). Zakaria n'héberge que l'exécution. Rien lié au casino n'est enregistré au nom de Zakaria.
 - **Réserve juridique notée, décision assumée** : en Suisse, la promotion de casinos en ligne non autorisés (LJAr) est un terrain exposé. Décision Zakaria du 2026-09-17 : **on avance, l'exploitation est l'affaire de Sofiane**. La réserve est écrite ici pour qu'elle ne se perde pas — elle se repose si l'activité devient facturée (donc BDW).
 - **Aucun conseil de jeu, aucune promesse de gain** dans les textes du bot : il explique des démarches, il ne vend pas.
 - **Jeton du bot** : variable d'environnement, jamais en clair, jamais sur GitHub.
@@ -78,6 +79,7 @@ Si Sofiane ne fournit ni lien de parrainage ni jeton **avant le 2026-10-01**, le
 |---|---|
 | 2026-09-17 | Brief écrit d'après le groupe WhatsApp (lu via le pont OpenWA du 05). En attente de validation Zakaria. |
 | 2026-09-17 | Parcours construit et prouvé au terminal (15 tests). En attente des trois réponses de Sofiane pour la mise en ligne. |
+| 2026-09-19 | **Point mise en ligne** : code prêt (40 tests verts), rien sur le VPS (`.env` absent, pas dans le veilleur). Sofiane injoignable depuis le 17/09 (appel du 19/09 sans réponse). **Décision Zakaria : il crée le jeton chez @BotFather lui-même, propriété transférée à Sofiane ensuite.** Restent à trancher par Sofiane : lequel des deux liens de parrainage (JD ou Clive), le VPN. |
 | 2026-09-17 | **Contre-audit passé et défauts corrigés** (6 sérieux, tous dans `bot.py`, qu'aucun test ne touchait). Les décisions du parcours sont redescendues dans `parcours.py`, sous tests ; `bot.py` a les siens (faux Telegram). 40 tests. |
 
 ## Ce que le contre-audit a trouvé (2026-09-17) et ce qu'on en a fait
