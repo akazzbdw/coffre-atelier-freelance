@@ -34,7 +34,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 | Qui | Demande | Payé ? | Statut | Prochaine action |
 |---|---|---|---|---|
-| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **V1.1 prête** (19/09) | Zakaria crée les deux bots chez @BotFather (guide dans le CLAUDE.md du chantier) → mise en ligne → faux canal de démo → itérer sur leurs retours ; relecture des textes par Sofiane ; **après validation : Sofiane héberge lui-même** (VPS à lui, code + mode d'emploi livrés, bots transférés, conteneurs Labo éteints) |
+| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en ligne** (19/09, VPS Labo, phase démo) | preuve `/start` par Zakaria → message de livraison à Sofiane (faux canal, relecture des textes) → itérer sur leurs retours → **après validation : Sofiane héberge lui-même**, bots transférés, conteneurs Labo éteints |
 
 ## Carte du projet
 

@@ -1,6 +1,6 @@
 # Chantier 01 — Bot Telegram d'accompagnement Stake
 
-**Statut** : brief validé par Zakaria le 2026-09-17 · V1 construite · **V1.1 construite le 2026-09-19 d'après l'appel avec Sofiane** (deux routes, Windscribe, bonus, un bot par influenceur — 56 tests) · **prête à mettre en ligne** : il manque les deux jetons BotFather (Zakaria les crée, guide ci-dessous). Point d'arrêt inchangé : 2026-10-01.
+**Statut** : brief validé le 2026-09-17 · V1 le 17/09 · V1.1 le 19/09 (appel Sofiane) · **EN LIGNE depuis le 2026-09-19, 21:14, sur le VPS Labo** — deux bots : **@guide_stake_jd_bot** (JD) et **@guide_stake_clive_bot** (Clive), conteneurs `bot-stake-jd` / `bot-stake-clive`, suivis par le veilleur. Phase démo : Zakaria = administrateur (demandes de bonus), textes à faire relire par Sofiane, puis passation complète (voir « Après validation »). Point d'arrêt inchangé : 2026-10-01.
 **Demandeur** : Sofiane El Mazghi — groupe WhatsApp « Bot telegram », créé le 2026-09-15
 **Payé** : non, service d'ami → reste au Labo (règle de frontière de l'atelier)
 **Ouvert** : 2026-09-17
@@ -103,6 +103,7 @@ Si Sofiane ne fournit ni lien de parrainage ni jeton **avant le 2026-10-01**, le
 | 2026-09-17 | Brief écrit d'après le groupe WhatsApp (lu via le pont OpenWA du 05). En attente de validation Zakaria. |
 | 2026-09-17 | Parcours construit et prouvé au terminal (15 tests). En attente des trois réponses de Sofiane pour la mise en ligne. |
 | 2026-09-19 | **Point mise en ligne** : code prêt (40 tests verts), rien sur le VPS (`.env` absent, pas dans le veilleur). Sofiane injoignable depuis le 17/09 (appel du 19/09 sans réponse). **Décision Zakaria : il crée le jeton chez @BotFather lui-même, propriété transférée à Sofiane ensuite.** Restent à trancher par Sofiane : lequel des deux liens de parrainage (JD ou Clive), le VPN. |
+| 2026-09-19 | **Mise en ligne 21:14** : jetons créés par Zakaria chez @BotFather (`@guide_stake_jd_bot`, `@guide_stake_clive_bot`), `.env.jd` + `.env.clive` sur le VPS (admin = Zakaria), `docker compose up --build`, les deux bots « en écoute », entrées `bot-stake-jd` / `bot-stake-clive` ajoutées au veilleur (source versionnée du 05 + copie VPS identiques). Preuve téléphone à faire par Zakaria : `/start` + une demande de bonus. |
 | 2026-09-19 | **Appel Sofiane 20:35 (après relance sur le groupe à 20:34, message envoyé par le bot 05 avec mention)** → **V1.1 construite le soir même** : question de départ (deux routes), étape crypto pour les débutants, étape bonus (deux bonus, demande → admin Telegram), Windscribe, un bot par influenceur (compose à deux services, `BOT_NOM`), colonne `debutant` ajoutée sans perte à une base V1. 56 tests verts (parcours + handlers, bibliothèque Telegram dans un venv de test), parcours débutant rejoué au terminal. Reste : les deux jetons BotFather (Zakaria). |
 | 2026-09-17 | **Contre-audit passé et défauts corrigés** (6 sérieux, tous dans `bot.py`, qu'aucun test ne touchait). Les décisions du parcours sont redescendues dans `parcours.py`, sous tests ; `bot.py` a les siens (faux Telegram). 40 tests. |
 
