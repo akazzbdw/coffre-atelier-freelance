@@ -53,7 +53,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 - **Une demande = un chantier numéroté** ; le numéro n'est jamais réutilisé.
 - **Rien ne se construit sur un brief non validé** — un chantier a son `CLAUDE.md` de brief avant sa première ligne de code (SOP-01 transposée).
-- **Le livrable appartient au demandeur** : quand c'est un bot, il est créé sur le compte du demandeur, Zakaria n'a que le jeton. On ne porte pas le risque d'une activité qui n'est pas la sienne.
+- **Le livrable appartient au demandeur** : quand c'est un bot, il est créé sur le compte du demandeur — ou, s'il est injoignable, par Zakaria avec transfert de propriété après livraison (décision du 19/09, chantier 01). On ne porte pas le risque d'une activité qui n'est pas la sienne.
 - **Temps** : soirs et week-ends seulement. Si un chantier mord sur le sprint BDW des 90 jours, Claude le dit tranché et le chantier passe en pause.
 - **Parité Mac ↔ Telegram** : l'atelier est du markdown versionné — le bot 05 le lit déjà. Chaque chantier dit dans son brief comment SA brique existe dans les deux mondes.
 - **Boîte noire** : dès la première ligne de code d'un chantier, traçage via `00-Systeme/labo_trace.py` (runs, sorties, events).
