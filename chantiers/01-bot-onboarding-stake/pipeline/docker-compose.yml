@@ -6,23 +6,21 @@
 # Mise en ligne : ajouter le dossier à PROJECTS du veilleur ~/autodeploy.sh
 # sur le VPS, puis pousser.
 
+# L'ancre ne porte que ce qui est vraiment commun. Les `volumes` n'y sont PAS
+# (audit ops 2026-09-20) : la fusion YAML `<<` ne concatène pas les listes, la
+# clé `volumes:` d'un service REMPLACE celle de l'ancre — les montages écrits
+# ici étaient morts, seuls ceux du service comptaient. Chaque service écrit donc
+# ses trois montages, explicitement.
 x-bot: &bot
   build:
     context: ..
     dockerfile: pipeline/Dockerfile
     args:
       LABO_FUSEAU: ${LABO_FUSEAU:-Europe/Zurich}
+      # 00-Systeme/versions.env (exporté par autodeploy.sh / installer-vps.sh)
+      PTB_VERSION: ${PTB_VERSION:?exporte 00-Systeme/versions.env}
   image: labo/bot-onboarding-stake
   restart: unless-stopped
-  volumes:
-    # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
-    # raison de voir le reste du Labo (il sert des inconnus).
-    # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
-    # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
-    # la couche éphémère du conteneur et mouraient à chaque redéploiement —
-    # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
-    - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
-    - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
 
 services:
   bot-jd:
@@ -30,6 +28,12 @@ services:
     container_name: bot-stake-jd
     env_file: .env.jd
     volumes:
+      # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
+      # raison de voir le reste du Labo (il sert des inconnus).
+      # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
+      # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
+      # la couche éphémère du conteneur et mouraient à chaque redéploiement —
+      # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
       - bot-stake-jd:/data
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault

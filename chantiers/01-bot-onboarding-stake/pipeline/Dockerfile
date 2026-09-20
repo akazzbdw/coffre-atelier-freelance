@@ -9,6 +9,10 @@ ENV TZ=${LABO_FUSEAU}
 WORKDIR /labo-repo/02-Projets/09-atelier-freelance/chantiers/01-bot-onboarding-stake
 COPY pipeline/requirements.txt pipeline/
 RUN pip install --no-cache-dir -r pipeline/requirements.txt
+# versions.env ↔ requirements.txt : python-telegram-bot installé = PTB_VERSION, sinon le build casse
+ARG PTB_VERSION
+RUN pip show python-telegram-bot | grep -qx "Version: ${PTB_VERSION}" \
+    || { echo "python-telegram-bot installé ≠ PTB_VERSION=${PTB_VERSION} (00-Systeme/versions.env ↔ requirements.txt)"; exit 1; }
 COPY pipeline/contenu.py pipeline/parcours.py pipeline/bot.py pipeline/
 VOLUME /data
 CMD ["python", "pipeline/bot.py"]
