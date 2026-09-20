@@ -18,7 +18,9 @@ partout dans ce fichier :
   1. on répond TOUJOURS par `ctx.bot.send_message` — jamais `query.message.reply_*`,
      qui n'existe plus quand le message porteur du bouton est trop vieux ;
   2. on ne fait jamais confiance au bouton cliqué, seulement à l'état en base ;
-  3. un handler ne meurt jamais en silence — au pire il dit quelque chose.
+  3. un handler ne meurt jamais en silence — au pire il dit quelque chose ;
+     le filet de dernier recours est celui de tout le Labo (`telegram_filet`,
+     2026-09-20 : une coupure Telegram n'est plus un « bot-echec »).
 """
 
 import html
@@ -304,17 +306,14 @@ async def recommencer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await demarrer(update, ctx)
 
 
-async def incident(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    """Filet de dernier recours : aucune erreur ne laisse la personne sans
-    réponse, et aucune ne reste invisible côté Labo."""
-    log.exception("erreur non rattrapée", exc_info=ctx.error)
-    parcours.tracer("bot-echec", f"erreur non rattrapée : {ctx.error!r}")
-    chat = getattr(update, "effective_chat", None)
-    if chat is not None:
-        try:
-            await ctx.bot.send_message(chat_id=chat.id, text=contenu.PANNE)
-        except TelegramError:
-            pass
+# Filet d'erreur : le commun du Labo (`00-Systeme/telegram_filet.py`, 2026-09-20) —
+# une coupure Telegram se trace sous son vrai nom, une vraie erreur garde le
+# Traceback, l'event `bot-echec` et le mot d'excuse à la personne.
+try:
+    import telegram_filet  # 00-Systeme est sur sys.path depuis parcours.py
+except Exception:  # pragma: no cover - sans lui, la librairie logue elle-même
+    telegram_filet = None
+    logging.getLogger("bot").warning("telegram_filet introuvable — filet d'erreur commun absent")
 
 
 def main() -> int:
@@ -340,7 +339,8 @@ def main() -> int:
     app.add_handler(CommandHandler("aide", aide))
     app.add_handler(CommandHandler("recommencer", recommencer))
     app.add_handler(CallbackQueryHandler(bouton))
-    app.add_error_handler(incident)
+    if telegram_filet:
+        app.add_error_handler(telegram_filet.filet(log, parcours.tracer, texte_panne=contenu.PANNE))
     nom = os.environ.get("BOT_NOM", "?")
     if not os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip():
         log.warning("TELEGRAM_ADMIN_CHAT_ID absent — les demandes de bonus seront seulement tracées")
