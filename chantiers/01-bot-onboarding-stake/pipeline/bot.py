@@ -19,30 +19,27 @@ partout dans ce fichier :
      qui n'existe plus quand le message porteur du bouton est trop vieux ;
   2. on ne fait jamais confiance au bouton cliqué, seulement à l'état en base ;
   3. un handler ne meurt jamais en silence — au pire il dit quelque chose ;
-     le filet de dernier recours est celui de tout le Labo (`telegram_filet`,
-     2026-09-20 : une coupure Telegram n'est plus un « bot-echec »).
+     le filet de dernier recours est celui de tout le Labo (posé par le tronc
+     commun `00-Systeme/labo_bot.py`, 2026-09-20 : une coupure Telegram n'est
+     plus un « bot-echec » ; envoi, découpe et gras → HTML viennent aussi de lui).
 """
 
-import html
 import json
 import logging
 import os
-import re
 import sys
 from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
-from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
-                          ContextTypes)
+from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import contenu  # noqa: E402
 import parcours  # noqa: E402
+from parcours import labo_bot  # noqa: E402  — 00-Systeme trouvé par parcours
 
-logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s",
-                    level=logging.INFO)
 log = logging.getLogger("bot-stake")
 
 MODE_TEST = os.environ.get("MODE_TEST") == "1"
@@ -66,10 +63,7 @@ def videos() -> dict:
         return {}
 
 
-def en_html(texte: str) -> str:
-    """**gras** → <b>gras</b>, le reste échappé (pas de Markdown capricieux)."""
-    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>",
-                  html.escape(texte, quote=False), flags=re.S)
+en_html = labo_bot.telegram_html   # **gras** → <b>, le reste échappé (tronc commun)
 
 
 def clavier_etape(etape_id: str) -> InlineKeyboardMarkup:
@@ -108,11 +102,7 @@ def clavier_vpn(complet: bool = True) -> InlineKeyboardMarkup:
 async def dire(ctx, chat_id: int, texte: str, clavier=None) -> None:
     """Envoyer un texte, découpé si nécessaire — le clavier va sur le dernier
     morceau. Passe par ctx.bot : ne dépend jamais d'un message porteur."""
-    morceaux = parcours.decouper(texte)
-    for i, morceau in enumerate(morceaux):
-        await ctx.bot.send_message(
-            chat_id=chat_id, text=en_html(morceau), parse_mode=ParseMode.HTML,
-            reply_markup=clavier if i == len(morceaux) - 1 else None)
+    await labo_bot.envoyer(ctx.bot, texte, chat_id=chat_id, clavier=clavier)
 
 
 async def retirer_clavier(requete) -> None:
@@ -306,23 +296,8 @@ async def recommencer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await demarrer(update, ctx)
 
 
-# Filet d'erreur : le commun du Labo (`00-Systeme/telegram_filet.py`, 2026-09-20) —
-# une coupure Telegram se trace sous son vrai nom, une vraie erreur garde le
-# Traceback, l'event `bot-echec` et le mot d'excuse à la personne.
-try:
-    import telegram_filet  # 00-Systeme est sur sys.path depuis parcours.py
-except Exception:  # pragma: no cover - sans lui, la librairie logue elle-même
-    telegram_filet = None
-    logging.getLogger("bot").warning("telegram_filet introuvable — filet d'erreur commun absent")
-
-
 def main() -> int:
-    jeton = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    if not jeton:
-        log.error("TELEGRAM_BOT_TOKEN absent — le bot ne démarre pas")
-        parcours.tracer("bot-echec", "TELEGRAM_BOT_TOKEN absent")
-        return 1
-
+    logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
     manques = parcours.config_incomplete()
     if manques and not MODE_TEST:
         # Aucun mode dégradé silencieux (SOP-01, 2026-09-16) : plutôt ne pas
@@ -334,20 +309,21 @@ def main() -> int:
         log.warning("MODE_TEST — manquent encore : %s", ", ".join(manques))
         parcours.tracer("bot-test", "démarrage en mode test")
 
-    app = Application.builder().token(jeton).build()
-    app.add_handler(CommandHandler("start", demarrer))
-    app.add_handler(CommandHandler("aide", aide))
-    app.add_handler(CommandHandler("recommencer", recommencer))
-    app.add_handler(CallbackQueryHandler(bouton))
-    if telegram_filet:
-        app.add_error_handler(telegram_filet.filet(log, parcours.tracer, texte_panne=contenu.PANNE))
     nom = os.environ.get("BOT_NOM", "?")
     if not os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip():
         log.warning("TELEGRAM_ADMIN_CHAT_ID absent — les demandes de bonus seront seulement tracées")
     log.info("Bot d'accompagnement [%s] en écoute%s", nom, " (MODE_TEST)" if MODE_TEST else "")
+    # pas d'appairage TOFU : ce bot sert des inconnus, /start est le parcours lui-même
+    return labo_bot.demarrer(
+        "bot-stake", "TELEGRAM_BOT_TOKEN",
+        [CommandHandler("start", demarrer), CommandHandler("aide", aide),
+         CommandHandler("recommencer", recommencer), CallbackQueryHandler(bouton)],
+        contenu.PANNE, tracer=parcours.tracer, log=log, allowed_updates=None,
+        post_init=lambda app: _tracer_demarrage(nom))
+
+
+async def _tracer_demarrage(nom):
     parcours.tracer("bot-demarrage", f"{nom} · " + ("mode test" if MODE_TEST else "réel"))
-    app.run_polling()
-    return 0
 
 
 if __name__ == "__main__":

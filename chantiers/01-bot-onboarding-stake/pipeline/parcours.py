@@ -27,6 +27,7 @@ try:
     import labo_trace
 except Exception:  # pragma: no cover - le traçage est un bonus, pas une dépendance
     labo_trace = None
+import labo_bot  # le tronc commun des bots (découpe, envoi, démarrage) — exigé, comme Telegram
 
 
 def chemin_db() -> Path:
@@ -286,21 +287,9 @@ def aide_courante(personne: str) -> tuple[str, str] | None:
 
 def decouper(texte: str, limite: int = 3800) -> list[str]:
     """Telegram refuse au-delà de 4096 caractères — une aide un peu longue
-    écrite par le demandeur partait en erreur 400 (contre-audit)."""
-    if len(texte) <= limite:
-        return [texte]
-    morceaux, reste = [], texte
-    while len(reste) > limite:
-        coupe = reste.rfind("\n", 0, limite)
-        if coupe < limite // 2:
-            coupe = reste.rfind(" ", 0, limite)
-        if coupe <= 0:
-            coupe = limite
-        morceaux.append(reste[:coupe].rstrip())
-        reste = reste[coupe:].lstrip()
-    if reste:
-        morceaux.append(reste)
-    return morceaux
+    écrite par le demandeur partait en erreur 400 (contre-audit). La découpe
+    est celle du tronc commun des bots (`labo_bot.decouper`)."""
+    return labo_bot.decouper(texte, limite)
 
 
 # ------------------------------------------------------------------ config
