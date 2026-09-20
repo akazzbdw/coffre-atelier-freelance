@@ -1,0 +1,27 @@
+# Fiche d'identité du projet 09 (l'atelier et ses chantiers) — lue par le veilleur, l'installeur VPS, la sauvegarde,
+# la carte et l'exporteur. Format : 02-Projets/CLAUDE.md, « La fiche d'identité ».
+nom = "atelier-freelance"
+transmis = false                      # des demandes d'amis, des noms réels : jamais dans l'export
+depend_de = []
+
+[[conteneurs]]
+nom = "stake"                         # → compose `name: labo-09-stake` (chantier 01 : un bot par influenceur, même image)
+compose = "chantiers/01-bot-onboarding-stake/pipeline"
+noms = ["bot-stake-jd", "bot-stake-clive"]
+image = "labo/bot-onboarding-stake"
+noyau = ["labo_bot.py", "telegram_filet.py"]
+libelle = "les deux bots Stake (chantier 09-01)"
+
+[[volumes]]
+nom = "labo-09-stake-jd"              # la progression des inscrits du premier bot
+sauvegarde = true
+[[volumes]]
+nom = "labo-09-stake-clive"
+sauvegarde = true
+
+[[secrets]]
+fichier = "chantiers/01-bot-onboarding-stake/pipeline/.env.jd"
+cles = ["BOT_NOM", "TELEGRAM_BOT_TOKEN", "STAKE_LIEN_PARRAINAGE", "VPN_NOM", "TELEGRAM_ADMIN_CHAT_ID"]
+[[secrets]]
+fichier = "chantiers/01-bot-onboarding-stake/pipeline/.env.clive"
+cles = ["BOT_NOM", "TELEGRAM_BOT_TOKEN", "STAKE_LIEN_PARRAINAGE", "VPN_NOM", "TELEGRAM_ADMIN_CHAT_ID"]

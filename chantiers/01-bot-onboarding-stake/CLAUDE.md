@@ -47,7 +47,7 @@ Mécanique :
 1. Dans Telegram, ouvrir **@BotFather** → `/newbot` → nom affiché (ex. « Guide Stake JD ») → identifiant finissant par `bot` (ex. `guide_stake_jd_bot`) → BotFather renvoie le **jeton**. Refaire pour Clive.
 2. Optionnel mais propre : `/setdescription`, `/setuserpic` (photo fournie par Sofiane).
 3. Sur le VPS, dans `pipeline/` du chantier : copier `.env.example` en `.env.jd` et `.env.clive`, remplir `BOT_NOM`, `TELEGRAM_BOT_TOKEN`, `STAKE_LIEN_PARRAINAGE`, `TELEGRAM_ADMIN_CHAT_ID` (l'identifiant Telegram de Zakaria, celui que connaît le bot 05).
-4. Ajouter le dossier à `PROJECTS` du veilleur `~/autodeploy.sh`, pousser : les deux conteneurs se construisent.
+4. Pousser : les deux conteneurs se construisent. La fiche du 09 (`02-Projets/09-atelier-freelance/projet.toml`) déclare déjà le compose de ce chantier (`name: labo-09-stake`, image `labo/bot-onboarding-stake`, volumes `labo-09-stake-jd` / `labo-09-stake-clive`, sauvegardés) : le veilleur la lit, rien à éditer. (Avant le 2026-09-20 : ajouter le dossier au tableau `PROJECTS` de `~/autodeploy.sh` ; le compose partageait le projet « pipeline » avec le 05 et ses volumes `pipeline_bot-stake-*` n'étaient pas sauvegardés.)
 5. Preuve : `/start` sur chaque bot depuis le téléphone, une demande de bonus → le message admin arrive.
 6. Plus tard, quand Sofiane répond : BotFather → `/mybots` → le bot → **Transfer Ownership** ; `TELEGRAM_ADMIN_CHAT_ID` passe à son identifiant.
 

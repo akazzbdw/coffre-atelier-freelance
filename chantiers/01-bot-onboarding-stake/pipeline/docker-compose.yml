@@ -3,8 +3,11 @@
 # même image, un conteneur par influenceur avec son jeton, son lien de
 # parrainage et sa propre base de progression. Secrets dans .env.jd et
 # .env.clive (modèle : .env.example), jamais commités.
-# Mise en ligne : ajouter le dossier à PROJECTS du veilleur ~/autodeploy.sh
-# sur le VPS, puis pousser.
+# Mise en ligne : la fiche du 09 (02-Projets/09-atelier-freelance/projet.toml) déclare ce compose,
+# le veilleur, l'installeur et la sauvegarde la lisent — pousser suffit.
+# Noms Docker (2026-09-20) : projet `labo-09-stake`, volumes `labo-09-stake-jd` / `labo-09-stake-clive`
+# (avant : projet « pipeline », le même que le bot 05 — un `down --remove-orphans` ici l'aurait tué).
+name: labo-09-stake
 
 # L'ancre ne porte que ce qui est vraiment commun. Les `volumes` n'y sont PAS
 # (audit ops 2026-09-20) : la fusion YAML `<<` ne concatène pas les listes, la
@@ -48,4 +51,6 @@ services:
 
 volumes:
   bot-stake-jd:
+    name: labo-09-stake-jd
   bot-stake-clive:
+    name: labo-09-stake-clive
