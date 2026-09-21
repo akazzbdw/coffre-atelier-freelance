@@ -9,7 +9,7 @@ Les demandes que des amis et des connaissances adressent à Zakaria (« tu peux 
 
 Chaque demande devient un **chantier** dans `chantiers/`, avec son mini-brief et son code. Ce qui se réutilise d'un chantier à l'autre remonte dans `briques/`. L'atelier n'est pas une machine : c'est un dossier et un tableau.
 
-Même grammaire que le **08-atelier-design** (un atelier, des chantiers) — et même garde-fou : on livre l'usage, on ne construit pas la machine qui traiterait « toutes les demandes futures ».
+Même grammaire que le **08-atelier-design** (archivé) (un atelier, des chantiers) — et même garde-fou : on livre l'usage, on ne construit pas la machine qui traiterait « toutes les demandes futures ».
 
 ## La règle de frontière (actée le 2026-09-17)
 
