@@ -15,4 +15,9 @@ RUN pip show python-telegram-bot | grep -qx "Version: ${PTB_VERSION}" \
     || { echo "python-telegram-bot installé ≠ PTB_VERSION=${PTB_VERSION} (00-Systeme/versions.env ↔ requirements.txt)"; exit 1; }
 COPY pipeline/contenu.py pipeline/parcours.py pipeline/bot.py pipeline/
 VOLUME /data
+# labo-tests : point d'entrée FIGÉ joué par l'auto-déploiement (fiche `tests = true`) — les tests du chantier
+# dans l'image fraîche, dépôt monté /labo:ro, sans réseau, AVANT de remplacer le conteneur (forme fermée,
+# audit externe 2026-09-22). Rouge = mise à jour refusée.
+RUN printf '#!/bin/sh\ncd /labo && exec python3 -m unittest discover -s 02-Projets/09-atelier-freelance/chantiers/01-bot-onboarding-stake/pipeline/tests\n' \
+    > /usr/local/bin/labo-tests && chmod +x /usr/local/bin/labo-tests
 CMD ["python", "pipeline/bot.py"]

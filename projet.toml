@@ -11,6 +11,7 @@ noms = ["bot-stake-jd", "bot-stake-clive"]
 image = "labo/bot-onboarding-stake"
 noyau = ["labo_bot.py", "telegram_filet.py"]
 libelle = "les deux bots Stake (chantier 09-01)"
+tests = true                          # garde-fou de déploiement (audit 2026-09-22) : l'image joue ses 56 tests (labo-tests), rouge = refus
 
 [[volumes]]
 nom = "labo-09-stake-jd"              # la progression des inscrits du premier bot
