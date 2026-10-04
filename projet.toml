@@ -1,7 +1,7 @@
 # Fiche d'identité du projet 09 (l'atelier et ses chantiers) — lue par le veilleur, l'installeur VPS et la sauvegarde.
-# Format : 02-Projets/CLAUDE.md, « La fiche d'identité ».
+# Format : 02-Projets/CLAUDE.md de l'usine, « La fiche d'identité ». Coffre (étape ⑨) : numéro 09 donné par
+# le registre de l'usine (00-Systeme/coffres.toml) ; `depend_de` retiré (clé refusée dans un coffre).
 nom = "atelier-freelance"
-depend_de = []
 
 [[conteneurs]]
 nom = "stake"                         # → compose `name: labo-09-stake` (chantier 01 : un bot par influenceur, même image)
@@ -17,6 +17,9 @@ nom = "labo-09-stake-jd"              # la progression des inscrits du premier b
 sauvegarde = true
 [[volumes]]
 nom = "labo-09-stake-clive"
+sauvegarde = true
+[[volumes]]
+nom = "labo-09-journal"               # le journal du coffre : la boîte noire des deux bots (01-Vault/boite-noire/labo-vps.db)
 sauvegarde = true
 
 [[secrets]]

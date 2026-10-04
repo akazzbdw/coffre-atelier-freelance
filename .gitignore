@@ -1,0 +1,7 @@
+# Ce qui ne se versionne jamais dans le coffre (étape ⑨).
+sorties/
+journal/
+donnees/
+.env*
+!.env.example
+__pycache__/

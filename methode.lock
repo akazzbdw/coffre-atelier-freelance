@@ -1,0 +1,4 @@
+# La méthode que ce coffre suit : le sceau de l'usine (~/Labo) qu'il a adopté.
+# Changer cette ligne = adopter un autre sceau de l'usine ; le fichier est couvert par le sceau du coffre.
+usine_sceau = 82
+date = "2026-10-04"

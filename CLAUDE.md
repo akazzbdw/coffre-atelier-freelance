@@ -1,3 +1,5 @@
+méthode : l'usine, sceau n°82
+
 # 09-atelier-freelance — CLAUDE.md
 
 **Statut** : actif

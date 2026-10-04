@@ -3,7 +3,7 @@
 # même image, un conteneur par influenceur avec son jeton, son lien de
 # parrainage et sa propre base de progression. Secrets dans .env.jd et
 # .env.clive (modèle : .env.example), jamais commités.
-# Mise en ligne : la fiche du 09 (02-Projets/09-atelier-freelance/projet.toml) déclare ce compose,
+# Mise en ligne : la fiche du coffre (projet.toml, à sa racine) déclare ce compose,
 # le veilleur, l'installeur et la sauvegarde la lisent — pousser suffit.
 # Noms Docker (2026-09-20) : projet `labo-09-stake`, volumes `labo-09-stake-jd` / `labo-09-stake-clive`
 # (avant : projet « pipeline », le même que le bot 05 — un `down --remove-orphans` ici l'aurait tué).
@@ -34,12 +34,15 @@ services:
       # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
       # raison de voir le reste du Labo (il sert des inconnus).
       # 01-Vault en écriture : c'est LÀ que labo_trace écrit la base
-      # (01-Vault/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
+      # (01-Vault/boite-noire/labo-vps.db). Sans ce montage, les traces s'écrivaient dans
       # la couche éphémère du conteneur et mouraient à chaque redéploiement —
       # y compris la trace d'échec de démarrage (contre-audit 2026-09-17).
+      # Coffre (étape ⑨) : ce 01-Vault est le journal DU COFFRE (volume nommé
+      # labo-09-journal), jamais celui de l'usine ; le 00-Systeme de l'usine
+      # reste monté en lecture seule.
       - bot-stake-jd:/data
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
-      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
+      - journal:/labo-repo/01-Vault
   bot-clive:
     <<: *bot
     container_name: bot-stake-clive
@@ -47,10 +50,12 @@ services:
     volumes:
       - bot-stake-clive:/data
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
-      - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/01-Vault:/labo-repo/01-Vault
+      - journal:/labo-repo/01-Vault
 
 volumes:
   bot-stake-jd:
     name: labo-09-stake-jd
   bot-stake-clive:
     name: labo-09-stake-clive
+  journal:
+    name: labo-09-journal
