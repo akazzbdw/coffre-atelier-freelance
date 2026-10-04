@@ -14,9 +14,9 @@ La grammaire est simple (un atelier, des chantiers), et le garde-fou aussi : on 
 ## La règle de frontière (actée le 2026-09-17)
 
 **Tant que c'est un service d'ami, gratuit, ça vit au Labo. Une demande facturée attend le coffre BDW neuf ; d'ici là elle ne démarre pas ici.**
-Le code peut rester au Labo comme brique réutilisable ; les données du client, elles, partent. Cette règle se vérifie à chaque livraison — Claude la rappelle sans attendre qu'on lui demande.
+Le code peut rester au Labo comme brique réutilisable ; les données d'un client, elles, n'entrent pas ici. Cette règle se vérifie à chaque livraison — Claude la rappelle sans attendre qu'on lui demande.
 
-Raison d'être : un client appartient à BDW, pas au Labo (étanchéité, CLAUDE.md racine §2 et §9). Une demande gratuite d'un pote n'est pas encore un client ; une demande facturée l'est. La facture est le signal, parce qu'il est net et vérifiable.
+Raison d'être : un client n'appartient pas au Labo (étanchéité, CLAUDE.md racine §2). Une demande gratuite d'un pote n'est pas encore un client ; une demande facturée l'est. La facture est le signal, parce qu'il est net et vérifiable.
 
 ## Version 1 minimale
 
