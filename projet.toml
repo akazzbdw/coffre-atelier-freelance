@@ -1,7 +1,6 @@
-# Fiche d'identité du projet 09 (l'atelier et ses chantiers) — lue par le veilleur, l'installeur VPS, la sauvegarde,
-# la carte et l'exporteur. Format : 02-Projets/CLAUDE.md, « La fiche d'identité ».
+# Fiche d'identité du projet 09 (l'atelier et ses chantiers) — lue par le veilleur, l'installeur VPS et la sauvegarde.
+# Format : 02-Projets/CLAUDE.md, « La fiche d'identité ».
 nom = "atelier-freelance"
-transmis = false                      # des demandes d'amis, des noms réels : jamais dans l'export
 depend_de = []
 
 [[conteneurs]]
