@@ -13,10 +13,10 @@ La grammaire est simple (un atelier, des chantiers), et le garde-fou aussi : on 
 
 ## La règle de frontière (actée le 2026-09-17)
 
-**Tant que c'est un service d'ami, gratuit, ça vit au Labo. À la première facture, le dossier et le contact déménagent chez Blue Digital Works.**
+**Tant que c'est un service d'ami, gratuit, ça vit au Labo. Une demande facturée attend le coffre BDW neuf ; d'ici là elle ne démarre pas ici.**
 Le code peut rester au Labo comme brique réutilisable ; les données du client, elles, partent. Cette règle se vérifie à chaque livraison — Claude la rappelle sans attendre qu'on lui demande.
 
-Raison d'être : l'étanchéité du CLAUDE.md racine dit « clients = BDW ». Une demande gratuite d'un pote n'est pas encore un client ; une demande facturée l'est. La facture est le signal, parce qu'il est net et vérifiable.
+Raison d'être : un client appartient à BDW, pas au Labo (étanchéité, CLAUDE.md racine §2 et §9). Une demande gratuite d'un pote n'est pas encore un client ; une demande facturée l'est. La facture est le signal, parce qu'il est net et vérifiable.
 
 ## Version 1 minimale
 
@@ -28,7 +28,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 - Pas de formulaire ni de bot d'entrée des demandes.
 - Pas de détection automatique des demandes par la gare de triage (07) — à reposer quand le tableau saturera.
-- Pas de fiche type, pas de devis type, pas de suivi de facturation (une demande facturée part chez BDW, donc ce suivi n'a pas sa place ici).
+- Pas de fiche type, pas de devis type, pas de suivi de facturation (une demande facturée ne démarre pas ici, donc ce suivi n'a pas sa place ici).
 
 ## Tableau des demandes
 
@@ -55,13 +55,13 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 - **Une demande = un chantier numéroté** ; le numéro n'est jamais réutilisé.
 - **Rien ne se construit sur un brief non validé** — un chantier a son `CLAUDE.md` de brief avant sa première ligne de code (SOP-01 transposée).
 - **Le livrable appartient au demandeur** : quand c'est un bot, il est créé sur le compte du demandeur — ou, s'il est injoignable, par Zakaria avec transfert de propriété après livraison (décision du 19/09, chantier 01). On ne porte pas le risque d'une activité qui n'est pas la sienne.
-- **Temps** : soirs et week-ends seulement. Si un chantier mord sur le sprint BDW des 90 jours, Claude le dit tranché et le chantier passe en pause.
+- **Temps** : soirs et week-ends seulement. Si un chantier mord sur les heures de bureau (CLAUDE.md racine §9), Claude le dit tranché et le chantier passe en pause.
 - **Parité Mac ↔ Telegram** : l'atelier est du markdown versionné — le bot 05 le lit déjà. Chaque chantier dit dans son brief comment SA brique existe dans les deux mondes.
 - **Boîte noire** : dès la première ligne de code d'un chantier, traçage via `00-Systeme/labo_trace.py` (runs, sorties, events).
 
 ## Critère d'arrêt
 
-**Point d'arrêt : 2026-12-17.** Si à cette date aucune demande n'a été livrée ET utilisée par la personne qui l'a demandée, l'atelier part aux archives. Un chantier en cours de construction compte comme vivant ; un chantier qui attend une réponse depuis plus d'un mois ne compte pas.
+**Point d'arrêt : 2026-12-17.** Si à cette date aucune demande n'a été livrée ET utilisée par la personne qui l'a demandée, l'atelier part en carton (règle : `02-Projets/CLAUDE.md`, « Fin de vie »). Un chantier en cours de construction compte comme vivant ; un chantier qui attend une réponse depuis plus d'un mois ne compte pas.
 
 ## Journal
 

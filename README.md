@@ -16,7 +16,7 @@ Ce qui se réutilise d'un chantier à l'autre remonte dans `briques/`.
 
 ## Règle à ne pas oublier
 
-Tant que c'est gratuit, ça vit ici. **À la première facture, ça part chez Blue Digital Works.**
+Tant que c'est gratuit, ça vit ici. **Une demande facturée attend le BDW neuf ; d'ici là elle ne démarre pas ici.**
 
 ## Chantier 01 — bot d'accompagnement Stake
 
