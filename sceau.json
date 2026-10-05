@@ -1,0 +1,29 @@
+{
+ "coffre": "atelier-freelance",
+ "compteur": 1,
+ "date": "2026-10-05T06:00:12Z",
+ "empreinte": "23fc1f8b3f8fcdacd6f2177c57411ae08a3e3c191050b83d12050c4cd5e9a5c9",
+ "fichiers": {
+  ".gitignore": "8601d8140dc0ac4f81393bf26967ddf690791b96",
+  "methode.lock": "b699ded6ae64911cc4d1bbb4dd9e98b419d559df"
+ },
+ "motifs": {
+  "exclus": [
+   "sceau.json"
+  ],
+  "inclus": [
+   "methode.lock",
+   "**/.claude/**",
+   "**/.mcp.json",
+   "**/AGENTS.md",
+   "**/CLAUDE.local.md",
+   "**/.vscode/**",
+   "**/.idea/**",
+   "**/.envrc",
+   ".gitignore"
+  ],
+  "reinclus": []
+ },
+ "signature": "MEUCID9JGRS2MY8llEG9zVquqg5hUBDw5viTS3XKn6w2zxkxAiEA6bbJCVq9lS+2DBRjQs5K4kEmRkicsSmZfntxcYwUeSo=",
+ "version": 1
+}
