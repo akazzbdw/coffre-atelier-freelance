@@ -29,7 +29,7 @@ services:
   bot-jd:
     <<: *bot
     container_name: bot-stake-jd
-    env_file: /home/ubuntu/labo-secrets/09-stake-jd.env   # hors dépôt (audit 2026-09-22)
+    env_file: /home/ubuntu/labo-secrets/coffres/atelier-freelance/09-stake-jd.env   # hors dépôt (audit 2026-09-22)
     volumes:
       # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
       # raison de voir le reste du Labo (il sert des inconnus).
@@ -46,7 +46,7 @@ services:
   bot-clive:
     <<: *bot
     container_name: bot-stake-clive
-    env_file: /home/ubuntu/labo-secrets/09-stake-clive.env   # hors dépôt (audit 2026-09-22)
+    env_file: /home/ubuntu/labo-secrets/coffres/atelier-freelance/09-stake-clive.env   # hors dépôt (audit 2026-09-22)
     volumes:
       - bot-stake-clive:/data
       - ${LABO_VPS_REPO:-/home/ubuntu/labo-repo}/00-Systeme:/labo-repo/00-Systeme:ro
