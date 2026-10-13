@@ -46,7 +46,8 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 | `JOURNAL.md` | La mémoire : une ligne par avancée |
 | `README.md` | Mode d'emploi rapide |
 | `projet.toml` | **La fiche d'identité de l'atelier (2026-09-20)** : elle déclare les conteneurs de ses chantiers (09-01 : `labo-09-stake`, les deux bots Stake sur la même image, volumes `labo-09-stake-jd` / `labo-09-stake-clive` sauvegardés, secrets `.env.jd` / `.env.clive`) — le veilleur, l'installeur et la sauvegarde la lisent (`00-Systeme/projets.py`). Un chantier de plus sur le VPS = un `[[conteneurs]]` de plus ici. Format : `02-Projets/CLAUDE.md`, « La fiche d'identité ». |
-| `chantiers/` | Une demande = un chantier numéroté dedans (son `CLAUDE.md` de brief + son code) |
+| `chantiers/` | Une demande = un chantier numéroté dedans (son `CLAUDE.md` de brief + son code). Cette forme « à chantiers » est la règle de ce coffre, né avant le squelette des coffres de l'usine (décision G13 du 13/10 : on la garde, ni `pipeline/` ni `donnees/` à la racine). |
+| `chantiers/01-bot-onboarding-stake/` | Chantier n°1 : le bot d'accompagnement Stake (deux bots sur une image) ; son brief et sa carte dans son `CLAUDE.md`. |
 | `briques/` | Ce qui se réutilise d'un chantier à l'autre (extrait APRÈS coup, jamais anticipé) |
 | `sorties/` | Ce que l'atelier produit (`AAAA-MM-JJ-type-nom`) |
 
