@@ -12,6 +12,9 @@ les emplacements vidéo), VIDEOS_JSON (chemin du fichier des vidéos),
 BOT_NOM (l'influenceur servi — un bot par influenceur, V1.1),
 TELEGRAM_ADMIN_CHAT_ID (qui reçoit les demandes de bonus : Zakaria d'abord,
 Sofiane quand il aura le bot — sans lui, la demande est seulement tracée).
+L'administrateur est aussi le seul à poser les vidéos (2026-10-19) : il envoie
+une vidéo au bot avec, en légende, le mot de l'étape ; `/videos` dit ce qui est
+en place. Décisions et fichier : parcours.py (« les vidéos »).
 
 Durci le 2026-09-17 après contre-audit (SOP-01 Phase 5). Trois règles tenues
 partout dans ce fichier :
@@ -24,7 +27,6 @@ partout dans ce fichier :
      plus un « bot-echec » ; envoi, découpe et gras → HTML viennent aussi de lui).
 """
 
-import json
 import logging
 import os
 import sys
@@ -33,7 +35,7 @@ from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
-from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
+from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import contenu  # noqa: E402
@@ -46,21 +48,17 @@ MODE_TEST = os.environ.get("MODE_TEST") == "1"
 
 
 def videos() -> dict:
-    """{id_etape: file_id Telegram} — vide tant que le monteur n'a pas livré.
+    """{id_etape: vidéo posée} — vide tant que l'administrateur n'a rien posé.
+    Lecture et forme : parcours.videos_lire / parcours.video_pour."""
+    return parcours.videos_lire()
 
-    Une vidéo se dépose une fois dans Telegram, on garde son file_id ici :
-    le parcours ne bouge pas, les fichiers s'ajoutent.
-    """
-    chemin = Path(os.environ.get("VIDEOS_JSON", "/data/videos.json"))
-    if not chemin.exists():
-        return {}
-    try:
-        return json.loads(chemin.read_text(encoding="utf-8"))
-    except Exception as e:
-        # jamais muet : un fichier de vidéos cassé se voit (contre-audit)
-        log.error("videos.json illisible (%s) — parcours servi sans vidéo", e)
-        parcours.tracer("bot-echec", f"videos.json illisible : {e}")
-        return {}
+
+def admin_id() -> str:
+    return os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+
+
+def est_admin(update: Update) -> bool:
+    return bool(admin_id()) and str(update.effective_user.id) == admin_id()
 
 
 en_html = labo_bot.telegram_html   # **gras** → <b>, le reste échappé (tronc commun)
@@ -148,13 +146,20 @@ async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
         return
     texte = parcours.rendu(etape, lien, vpn_nom, parcours.position(etapes, etape_id))
     parcours.tracer("parcours-etape", f"{personne} · {etape_id}")
-    fichier = videos().get(etape_id)
-    if fichier:
+    video = parcours.video_pour(videos(), etape_id)
+    if video:
+        fichier, genre = video
         try:
-            await ctx.bot.send_video(chat_id=chat_id, video=fichier,
-                                     caption=en_html(texte),
-                                     parse_mode=ParseMode.HTML,
-                                     reply_markup=clavier_pour(etape_id))
+            if genre == "document":
+                await ctx.bot.send_document(chat_id=chat_id, document=fichier,
+                                            caption=en_html(texte),
+                                            parse_mode=ParseMode.HTML,
+                                            reply_markup=clavier_pour(etape_id))
+            else:
+                await ctx.bot.send_video(chat_id=chat_id, video=fichier,
+                                         caption=en_html(texte),
+                                         parse_mode=ParseMode.HTML,
+                                         reply_markup=clavier_pour(etape_id))
             return
         except TelegramError as e:
             # une vidéo qui ne part pas ne doit pas priver de l'étape
@@ -288,6 +293,42 @@ async def aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await dire(ctx, chat_id, texte, clavier_pour(etape_id))
 
 
+async def poser_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """L'administrateur envoie une vidéo avec, en légende, le mot de l'étape.
+    Quelqu'un d'autre : rien — ce bot ne lit pas ce que les clients envoient
+    (il n'a pas de cerveau, seulement un parcours)."""
+    if not est_admin(update):
+        return
+    chat_id = update.effective_chat.id
+    message = update.effective_message
+    video = getattr(message, "video", None)
+    document = getattr(message, "document", None)
+    if video is not None:
+        file_id, genre, nom = video.file_id, "video", getattr(video, "file_name", "") or ""
+    elif document is not None and (getattr(document, "mime_type", "") or "").startswith("video/"):
+        file_id, genre, nom = document.file_id, "document", getattr(document, "file_name", "") or ""
+    else:
+        await dire(ctx, chat_id, contenu.VIDEO_PAS_UNE_VIDEO)
+        return
+    etape = parcours.etape_pour_video(getattr(message, "caption", None))
+    if etape is None:
+        liste = "\n".join(f"• {e['id']} — {e['titre']}" for e in contenu.ETAPES)
+        await dire(ctx, chat_id, contenu.VIDEO_ETAPE_INCONNUE.replace("{liste}", liste))
+        return
+    parcours.enregistrer_video(etape["id"], file_id, genre, nom)
+    await dire(ctx, chat_id, contenu.VIDEO_ENREGISTREE
+               .replace("{titre}", etape["titre"]).replace("{etape}", etape["id"]))
+
+
+async def etat_videos(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """/videos — l'administrateur voit ce qui est posé, étape par étape."""
+    if not est_admin(update):
+        return
+    lignes = "\n".join(f"{'✔' if posee else '—'} {etape_id} — {titre}"
+                       for etape_id, titre, posee in parcours.videos_etat())
+    await dire(ctx, update.effective_chat.id, contenu.VIDEOS_ETAT.replace("{lignes}", lignes))
+
+
 async def recommencer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     with parcours.connexion() as cx:
         cx.execute("DELETE FROM progression WHERE personne = ?",
@@ -317,7 +358,9 @@ def main() -> int:
     return labo_bot.demarrer(
         "bot-stake", "TELEGRAM_BOT_TOKEN",
         [CommandHandler("start", demarrer), CommandHandler("aide", aide),
-         CommandHandler("recommencer", recommencer), CallbackQueryHandler(bouton)],
+         CommandHandler("recommencer", recommencer), CommandHandler("videos", etat_videos),
+         MessageHandler(filters.VIDEO | filters.Document.ALL, poser_video),
+         CallbackQueryHandler(bouton)],
         contenu.PANNE, tracer=parcours.tracer, log=log, allowed_updates=None,
         post_init=lambda app: _tracer_demarrage(nom))
 

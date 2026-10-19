@@ -39,6 +39,12 @@ class FauxBot:
     async def send_video(self, chat_id, video, caption=None, parse_mode=None,
                          reply_markup=None):
         self.envois.append(("video", caption, reply_markup))
+        self.fichiers = getattr(self, "fichiers", []) + [("video", video)]
+
+    async def send_document(self, chat_id, document, caption=None, parse_mode=None,
+                            reply_markup=None):
+        self.envois.append(("document", caption, reply_markup))
+        self.fichiers = getattr(self, "fichiers", []) + [("document", document)]
 
 
 class FauxCtx:
@@ -72,12 +78,24 @@ class FausseRequete:
 
 
 class FauxUpdate:
-    def __init__(self, personne="42", requete=None):
+    def __init__(self, personne="42", requete=None, message=None):
         self.callback_query = requete
         self.effective_user = type("U", (), {"id": personne, "username": "toto",
                                              "first_name": "Toto"})()
         self.effective_chat = type("C", (), {"id": 1})()
-        self.effective_message = type("M", (), {})()
+        self.effective_message = message if message is not None else type("M", (), {})()
+
+
+def message_video(legende, file_id="FID-video"):
+    """Ce que Telegram donne quand on envoie une vidéo « en tant que vidéo »."""
+    video = type("V", (), {"file_id": file_id, "file_name": "tuto.mp4"})()
+    return type("M", (), {"video": video, "document": None, "caption": legende})()
+
+
+def message_fichier(legende, mime="video/mp4", file_id="FID-doc"):
+    """Un .mp4 envoyé « en tant que fichier » (partage depuis WhatsApp)."""
+    doc = type("D", (), {"file_id": file_id, "file_name": "tuto.mp4", "mime_type": mime})()
+    return type("M", (), {"video": None, "document": doc, "caption": legende})()
 
 
 @unittest.skipUnless(TELEGRAM, "python-telegram-bot absent (normal sur le Mac)")
@@ -211,6 +229,85 @@ class TestHandlers(unittest.TestCase):
         ctx = FauxCtx()
         self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
         self.assertIsNotNone(ctx.bot.envois[-1][2], "cul-de-sac muet")
+
+    # ----- les vidéos (2026-10-19) : posées par l'administrateur, servies avec l'étape
+
+    def en_admin(self):
+        os.environ["TELEGRAM_ADMIN_CHAT_ID"] = "999"
+        self.addCleanup(os.environ.pop, "TELEGRAM_ADMIN_CHAT_ID", None)
+
+    def test_l_admin_pose_une_video_et_l_etape_part_avec(self):
+        self.en_admin()
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_video("compte")), ctx))
+        self.assertIn("enregistrée", ctx.bot.envois[-1][1]); self.assertIn("Créer ton compte", ctx.bot.envois[-1][1])
+        cx = parcours.ouvrir(); parcours.ecrire_etat(cx, "42", vpn=False, etape="compte"); cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        genre, legende, clavier = ctx.bot.envois[-1]
+        self.assertEqual(genre, "video"); self.assertIn("Créer ton compte", legende)
+        self.assertIsNotNone(clavier, "la vidéo doit porter les boutons de l'étape")
+        self.assertEqual(ctx.bot.fichiers[-1], ("video", "FID-video"))
+
+    def test_un_mp4_envoye_en_fichier_est_servi_en_fichier(self):
+        self.en_admin()
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_fichier("/Vérification")), ctx))
+        self.assertIn("enregistrée", ctx.bot.envois[-1][1])
+        cx = parcours.ouvrir(); parcours.ecrire_etat(cx, "42", vpn=False, etape="verification"); cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        self.assertEqual(ctx.bot.envois[-1][0], "document")
+        self.assertEqual(ctx.bot.fichiers[-1], ("document", "FID-doc"))
+
+    def test_une_legende_inconnue_ne_pose_rien_et_liste_les_mots(self):
+        self.en_admin()
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_video("la deuxième")), ctx))
+        self.assertIn("vpn — Installer le VPN", ctx.bot.envois[-1][1])
+        self.assertEqual(parcours.videos_lire(), {})
+
+    def test_un_fichier_qui_n_est_pas_une_video_est_refuse(self):
+        self.en_admin()
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_fichier("compte", mime="application/pdf")), ctx))
+        self.assertIn("pas une vidéo", ctx.bot.envois[-1][1])
+        self.assertEqual(parcours.videos_lire(), {})
+
+    def test_un_client_qui_envoie_une_video_n_est_ni_servi_ni_enregistre(self):
+        self.en_admin()
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("42", message=message_video("compte")), ctx))
+        self.assertEqual(ctx.bot.envois, [])
+        self.assertEqual(parcours.videos_lire(), {})
+        ctx = FauxCtx()
+        self.lancer(self.bot.etat_videos(FauxUpdate("42"), ctx))
+        self.assertEqual(ctx.bot.envois, [])
+
+    def test_sans_admin_declare_personne_ne_pose_de_video(self):
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_video("compte")), ctx))
+        self.assertEqual(ctx.bot.envois, []); self.assertEqual(parcours.videos_lire(), {})
+
+    def test_videos_dit_ce_qui_est_pose(self):
+        self.en_admin()
+        parcours.enregistrer_video("vpn", "FID", "video")
+        ctx = FauxCtx()
+        self.lancer(self.bot.etat_videos(FauxUpdate("999"), ctx))
+        texte = ctx.bot.envois[-1][1]
+        self.assertIn("✔ vpn — Installer le VPN", texte); self.assertIn("— compte — Créer ton compte", texte)
+
+    def test_une_video_refusee_par_telegram_sert_l_etape_en_texte(self):
+        parcours.enregistrer_video("compte", "FID-mort", "video")
+        cx = parcours.ouvrir(); parcours.ecrire_etat(cx, "42", vpn=False, etape="compte"); cx.close()
+        ctx = FauxCtx()
+        async def refuse(**kw):
+            from telegram.error import BadRequest
+            raise BadRequest("wrong file identifier")
+        ctx.bot.send_video = refuse
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        self.assertEqual(ctx.bot.envois[-1][0], "texte"); self.assertIn("Créer ton compte", ctx.bot.envois[-1][1])
+        self.assertIsNotNone(ctx.bot.envois[-1][2])
 
     def test_un_texte_tres_long_part_en_plusieurs_messages(self):
         ctx = FauxCtx()

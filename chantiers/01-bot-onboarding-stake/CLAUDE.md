@@ -1,6 +1,6 @@
 # Chantier 01 — Bot Telegram d'accompagnement Stake
 
-**Statut** : brief validé le 2026-09-17 · V1 le 17/09 · V1.1 le 19/09 (appel Sofiane) · **EN LIGNE depuis le 2026-09-19, 21:14, sur le VPS Labo** — deux bots : **@guide_stake_jd_bot** (JD) et **@guide_stake_clive_bot** (Clive), conteneurs `bot-stake-jd` / `bot-stake-clive`, suivis par le veilleur. Phase démo : Zakaria = administrateur (demandes de bonus), textes à faire relire par Sofiane, puis passation complète (voir « Après validation »). Point d'arrêt inchangé : 2026-10-01.
+**Statut** : brief validé le 2026-09-17 · V1 le 17/09 · V1.1 le 19/09 (appel Sofiane) · **EN LIGNE depuis le 2026-09-19, 21:14, sur le VPS Labo** — deux bots : **@guide_stake_jd_bot** (JD) et **@guide_stake_clive_bot** (Clive), conteneurs `bot-stake-jd` / `bot-stake-clive`, suivis par le veilleur. Phase démo : Zakaria = administrateur (demandes de bonus, **et pose des vidéos depuis son téléphone — V1.2, 2026-10-19**), textes à faire relire par Sofiane, puis passation complète (voir « Après validation »). Point d'arrêt inchangé : 2026-10-01.
 **Demandeur** : Sofiane El Mazghi — groupe WhatsApp « Bot telegram », créé le 2026-09-15
 **Payé** : non, service d'ami → reste au Labo (règle de frontière de l'atelier)
 **Ouvert** : 2026-09-17
@@ -42,6 +42,24 @@ Mécanique :
 - **Qui fait quoi** : Zakaria crée les bots chez @BotFather et transfère la propriété ; **James** (équipe Sofiane) installe le bouton sur chaque canal ; **Julien** (monteur) fait les vidéos. Prochaine étape convenue : Zakaria connecte les bots, montre un faux canal, puis on itère sur leurs retours.
 - Les textes des étapes crypto et bonus sont écrits par Claude d'après ces éléments : **à faire relire par Sofiane** comme les autres (`pipeline/contenu.py`).
 
+### V1.2 — les vidéos du monteur (2026-10-19)
+
+Julien a livré cinq vidéos sur le groupe WhatsApp entre le 30/09 et le 17/10 (lues par le pont du 05 ; les quatre premières rapatriées et vérifiées image par image, la cinquième — 70 Mo — n'est que sur le téléphone de Zakaria). Chacune va à une étape, **le parcours ne bouge pas** :
+
+| Vidéo (nom du fichier sur le groupe) | Étape | Mot à mettre en légende |
+|---|---|---|
+| `tuto-windscribe-motion-v3.mp4` (25 s, Hong Kong) | Installer le VPN | `vpn` |
+| `tuto_stake_vertical.mp4` (26 s) | Créer ton compte | `compte` |
+| `tuto_stake_verification.mp4` (26 s) | Vérifier ton compte | `verification` |
+| `tuto_stake_depot_carte.mp4` (56 s, achat d'USDT par carte via Swapped) | Acheter un peu de crypto | `crypto` |
+| `RENDER_STAKE_DEPOT_VF.mp4` (70 Mo) | Faire ton premier dépôt | `depot` |
+
+« Activer ton bonus » et « Tes premiers pas » restent en texte (pas de vidéo prévue).
+
+**Comment une vidéo entre dans un bot — sans serveur, sans Terminal** : l'administrateur (`TELEGRAM_ADMIN_CHAT_ID`) envoie la vidéo au bot, depuis son téléphone, avec **en légende le mot de l'étape** (`vpn`, `compte`…). Le bot garde l'identifiant Telegram du fichier dans `/data/videos.json` (volume sauvegardé) et confirme ; `/videos` liste ce qui est posé. Renvoyer une vidéo avec le même mot la remplace. Les identifiants sont **propres à chaque bot** : les cinq vidéos s'envoient à JD **et** à Clive (dix envois). Un envoi « en tant que vidéo » est lu dans Telegram ; un `.mp4` envoyé « en tant que fichier » marche aussi, mais le client doit le télécharger — préférer la vidéo. Un bot ne peut pas téléverser lui-même un fichier de plus de 50 Mo, mais il **resert** sans limite un fichier reçu : c'est pour ça que la vidéo de 70 Mo passe par le téléphone de l'administrateur, et pour ça aussi que Sofiane pourra changer les vidéos lui-même après le transfert, de la même façon. Un client qui envoie une vidéo au bot n'est ni servi ni enregistré (le bot ne lit pas ce que les clients envoient). Décisions et fichier : `parcours.py`, « les vidéos » ; porte : `bot.py` (`poser_video`, `etat_videos`).
+
+Le texte de l'étape VPN dit désormais « choisis **Hong Kong** dans la liste des serveurs » (ce que montre la vidéo ; Sofiane avait dit « Chine » le 30/09, la vidéo tranche).
+
 ### Mise en ligne (guide pour Zakaria)
 
 1. Dans Telegram, ouvrir **@BotFather** → `/newbot` → nom affiché (ex. « Guide Stake JD ») → identifiant finissant par `bot` (ex. `guide_stake_jd_bot`) → BotFather renvoie le **jeton**. Refaire pour Clive.
@@ -73,8 +91,9 @@ Zakaria : « une fois livré, ça ne passe plus par moi ». Le seul chemin qui t
 
 ## Ce qu'on attend du monteur
 
-- [ ] Une vidéo par étape, **verticale, 60 secondes maximum**, sans musique dominante, une seule action montrée à l'écran.
-- [ ] Livrées en fichiers (pas de lien) — elles vivront dans Telegram.
+- [x] ~~Une vidéo par étape, **verticale, 60 secondes maximum**, sans musique dominante, une seule action montrée à l'écran.~~ → **cinq vidéos livrées sur le groupe (30/09 → 17/10)**, verticales 1080×1920, 25 à 56 s (V1.2).
+- [x] ~~Livrées en fichiers (pas de lien) — elles vivront dans Telegram.~~ → livrées en fichiers ; posées dans chaque bot par Zakaria depuis son téléphone (V1.2).
+- Ses trois questions sur le groupe restées sans réponse : revenir au début = `/recommencer` ; pays du VPN = Hong Kong (sa vidéo) ; « où le client fait le dépôt par carte ? » = l'étape « Acheter un peu de crypto » (sa vidéo `depot_carte`).
 
 ## Garde-fous
 
@@ -103,6 +122,7 @@ Si Sofiane ne fournit ni lien de parrainage ni jeton **avant le 2026-10-01**, le
 | 2026-09-17 | Brief écrit d'après le groupe WhatsApp (lu via le pont OpenWA du 05). En attente de validation Zakaria. |
 | 2026-09-17 | Parcours construit et prouvé au terminal (15 tests). En attente des trois réponses de Sofiane pour la mise en ligne. |
 | 2026-09-19 | **Point mise en ligne** : code prêt (40 tests verts), rien sur le VPS (`.env` absent, pas dans le veilleur). Sofiane injoignable depuis le 17/09 (appel du 19/09 sans réponse). **Décision Zakaria : il crée le jeton chez @BotFather lui-même, propriété transférée à Sofiane ensuite.** Restent à trancher par Sofiane : lequel des deux liens de parrainage (JD ou Clive), le VPN. |
+| 2026-10-19 | **V1.2 — les vidéos.** Le groupe WhatsApp relu en entier par le pont du 05 (170 messages depuis le 15/09) : Julien a livré cinq vidéos (30/09 → 17/10), Sofiane relance chaque jour depuis le 18/10, personne n'a relu les textes. Quatre vidéos rapatriées et regardées image par image → une étape chacune (tableau ci-dessus). Le bot gagne la **pose par l'administrateur** (vidéo + mot de l'étape en légende, `/videos`), les décisions dans `parcours.py` sous tests ; l'étape VPN dit Hong Kong. 71 tests verts (15 nouveaux). Reste à Zakaria : pousser le coffre, puis envoyer les cinq vidéos à chaque bot depuis son téléphone, et répondre au groupe. |
 | 2026-09-20 | **Première nuit en prod : un « 502 Bad Gateway » de Telegram (03:12, deux essais)** tracé `bot-echec · erreur non rattrapée` par le filet local → alerte du matin pour rien. Le filet local devient le filet commun du Labo (`00-Systeme/telegram_filet.py`, posé aussi sur le 03 et le 05) : coupure Telegram = `telegram-indisponible`, vraie erreur = `bot-echec` + mot d'excuse. 56 tests inchangés, 8 sur le filet. |
 | 2026-09-19 | **Preuve téléphone par Zakaria (21:22-21:23)** : route « zéro », 7 étapes, demande de bonus → message admin reçu (dans sa propre conversation avec le bot JD, puisqu'il est testeur et admin). **Livraison annoncée sur le groupe WhatsApp** (brique du 05, Sofiane, Timothé et Julien tagués) : liens des deux bots, relecture des textes par Sofiane, canaux par Timothé, 7 vidéos par Julien. Premier envoi en pavé refusé par Zakaria (« j'écris pas comme ça ») → réécrit à 21:36 en sept bulles courtes dans son style (fiche `style-whatsapp-zakaria.md` du 05). On attend leurs retours. |
 | 2026-09-19 | **Mise en ligne 21:14** : jetons créés par Zakaria chez @BotFather (`@guide_stake_jd_bot`, `@guide_stake_clive_bot`), `.env.jd` + `.env.clive` sur le VPS (admin = Zakaria), `docker compose up --build`, les deux bots « en écoute », entrées `bot-stake-jd` / `bot-stake-clive` ajoutées au veilleur (source versionnée du 05 + copie VPS identiques). Preuve téléphone à faire par Zakaria : `/start` + une demande de bonus. |

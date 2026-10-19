@@ -6,9 +6,11 @@ progression vit ici. Les textes, eux, vivent dans contenu.py.
 """
 
 import argparse
+import json
 import os
 import sqlite3
 import sys
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -166,6 +168,77 @@ def tracer(genre: str, detail: str = "") -> None:
             labo_trace.log_event(PROJET, genre, f"{CHANTIER} · {detail}".strip(" ·"))
         except Exception:
             pass
+
+
+# ------------------------------------------------- les vidéos (une par étape, posées par l'administrateur)
+#
+# Le parcours ne bouge pas : chaque étape a son emplacement (brief, « Emplacement
+# vidéo prêt à chaque étape »), le fichier s'y pose quand le monteur livre. La
+# vidéo vit chez Telegram ; ici on ne garde que son identifiant (file_id) — propre
+# à CE bot : JD et Clive reçoivent chacun leurs envois. Posée par l'administrateur
+# (TELEGRAM_ADMIN_CHAT_ID : Zakaria, puis Sofiane) depuis son téléphone, jamais
+# par un geste serveur. Fichier : VIDEOS_JSON (/data/videos.json dans le conteneur).
+
+def chemin_videos() -> Path:
+    return Path(os.environ.get("VIDEOS_JSON", "/data/videos.json"))
+
+
+def videos_lire() -> dict:
+    """{id_etape: entrée} — vide tant que rien n'est posé. Un fichier illisible
+    n'est jamais muet (contre-audit) : tracé, et le parcours est servi sans vidéo."""
+    chemin = chemin_videos()
+    if not chemin.exists():
+        return {}
+    try:
+        videos = json.loads(chemin.read_text(encoding="utf-8"))
+        return videos if isinstance(videos, dict) else {}
+    except Exception as e:
+        tracer("bot-echec", f"videos.json illisible : {e}")
+        return {}
+
+
+def video_pour(videos: dict, etape_id: str):
+    """(file_id, genre) de l'étape, ou None. Deux formes acceptées : la première
+    (une chaîne = file_id d'une vidéo) et la forme posée par l'administrateur
+    ({"file_id", "genre"}) — genre « video » (lue dans Telegram) ou « document »
+    (un .mp4 envoyé en fichier : Telegram le sert en téléchargement)."""
+    entree = videos.get(etape_id)
+    if isinstance(entree, str) and entree:
+        return entree, "video"
+    if isinstance(entree, dict) and entree.get("file_id"):
+        return entree["file_id"], ("document" if entree.get("genre") == "document" else "video")
+    return None
+
+
+def etape_pour_video(legende) -> dict | None:
+    """La légende envoyée avec la vidéo désigne une étape par son mot (« compte »,
+    « /verification », « Vérification ») — jamais devinée : inconnue = None."""
+    mot = (legende or "").strip().lstrip("/").strip().lower()
+    mot = "".join(c for c in unicodedata.normalize("NFD", mot) if unicodedata.category(c) != "Mn")
+    return next((e for e in contenu.ETAPES if e["id"] == mot), None)
+
+
+def enregistrer_video(etape_id: str, file_id: str, genre: str, nom: str = "") -> dict:
+    """Pose (ou remplace) la vidéo d'une étape. Écriture atomique : le bot
+    continue de servir l'ancienne version jusqu'au dernier octet."""
+    if etape_pour_video(etape_id) is None:
+        raise ValueError(f"étape inconnue : {etape_id}")
+    videos = videos_lire()
+    videos[etape_id] = {"file_id": file_id, "genre": "document" if genre == "document" else "video",
+                        "nom": nom or "", "quand": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    chemin = chemin_videos()
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    provisoire = chemin.with_suffix(".json.tmp")
+    provisoire.write_text(json.dumps(videos, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(provisoire, chemin)
+    tracer("video-posee", f"{etape_id} · {videos[etape_id]['genre']} · {nom}")
+    return videos[etape_id]
+
+
+def videos_etat() -> list[tuple[str, str, bool]]:
+    """[(id, titre, posée ?)] pour toutes les étapes, dans l'ordre du parcours complet."""
+    videos = videos_lire()
+    return [(e["id"], e["titre"], video_pour(videos, e["id"]) is not None) for e in contenu.ETAPES]
 
 
 # ------------------------------------------------- décisions (testables sans Telegram)

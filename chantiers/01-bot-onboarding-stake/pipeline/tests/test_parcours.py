@@ -29,8 +29,54 @@ class Base(unittest.TestCase):
     def tearDown(self):
         parcours.labo_trace = self._trace
         self._tmp.cleanup()
-        for cle in ("PARCOURS_DB", "STAKE_LIEN_PARRAINAGE", "VPN_NOM"):
+        for cle in ("PARCOURS_DB", "STAKE_LIEN_PARRAINAGE", "VPN_NOM", "VIDEOS_JSON"):
             os.environ.pop(cle, None)
+
+
+class TestVideos(Base):
+    """Les vidéos (2026-10-19) : une par étape, posées par l'administrateur."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["VIDEOS_JSON"] = str(Path(self._tmp.name) / "videos.json")
+
+    def test_la_legende_designe_une_etape_sans_deviner(self):
+        self.assertEqual(parcours.etape_pour_video(" /Vérification ")["id"], "verification")
+        self.assertEqual(parcours.etape_pour_video("COMPTE")["id"], "compte")
+        for mauvaise in ("", None, "la deuxième", "compte verification", "video"):
+            self.assertIsNone(parcours.etape_pour_video(mauvaise), mauvaise)
+
+    def test_poser_puis_remplacer(self):
+        parcours.enregistrer_video("vpn", "FID-1", "video", "v1.mp4")
+        self.assertEqual(parcours.video_pour(parcours.videos_lire(), "vpn"), ("FID-1", "video"))
+        parcours.enregistrer_video("vpn", "FID-2", "document", "v2.mp4")
+        self.assertEqual(parcours.video_pour(parcours.videos_lire(), "vpn"), ("FID-2", "document"))
+        self.assertIsNone(parcours.video_pour(parcours.videos_lire(), "compte"))
+        self.assertFalse(parcours.chemin_videos().with_suffix(".json.tmp").exists(), "écriture atomique")
+
+    def test_une_etape_inconnue_est_refusee(self):
+        with self.assertRaises(ValueError):
+            parcours.enregistrer_video("ailleurs", "FID", "video")
+        self.assertEqual(parcours.videos_lire(), {})
+
+    def test_l_ancienne_forme_une_chaine_est_toujours_lue(self):
+        parcours.chemin_videos().write_text('{"compte": "FID-ancien"}', encoding="utf-8")
+        self.assertEqual(parcours.video_pour(parcours.videos_lire(), "compte"), ("FID-ancien", "video"))
+
+    def test_un_fichier_casse_sert_le_parcours_sans_video(self):
+        parcours.chemin_videos().write_text("{pas du json", encoding="utf-8")
+        self.assertEqual(parcours.videos_lire(), {})
+
+    def test_l_etat_couvre_toutes_les_etapes_dans_l_ordre(self):
+        parcours.enregistrer_video("depot", "FID", "video")
+        etat = parcours.videos_etat()
+        self.assertEqual([e[0] for e in etat], ["vpn", "compte", "verification", "crypto", "depot", "bonus", "jeux"])
+        self.assertEqual([e[0] for e in etat if e[2]], ["depot"])
+
+    def test_l_etape_vpn_dit_hong_kong(self):
+        """La vidéo du monteur (30/09) choisit Hong Kong ; le texte dit la même chose."""
+        etapes = parcours.etapes_pour(True)
+        self.assertIn("Hong Kong", parcours.rendu(etapes[0], "https://x", "UnVPN", (1, 6)))
 
 
 class TestEtapes(Base):

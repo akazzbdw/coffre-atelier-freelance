@@ -57,8 +57,9 @@ ETAPES = [
         "optionnelle": True,          # servie seulement si la personne dit en avoir besoin
         "corps": (
             "1. Installe **{vpn}** (gratuit) depuis ton store d'applications\n"
-            "2. Ouvre l'appli et appuie sur le gros bouton de connexion\n"
-            "3. Attends le voyant vert, puis reviens ici"
+            "2. Ouvre l'appli et choisis **Hong Kong** dans la liste des serveurs\n"
+            "3. Appuie sur le gros bouton de connexion\n"
+            "4. Attends le voyant vert, puis reviens ici"
         ),
         "aide": (
             "Deux choses qui bloquent le plus souvent :\n\n"
@@ -218,6 +219,15 @@ BONUS_DEMANDE_OK = (
 BONUS_DEJA_DEMANDE = "Ta demande est déjà partie — l'activation prend jusqu'à 24 h."
 # ce que reçoit l'administrateur (Zakaria, puis Sofiane) à chaque demande
 ADMIN_BONUS = "🎁 Demande de bonus — bot {bot}\nQui : {qui}\nÀ activer sous 24 h."
+
+# Les vidéos (2026-10-19) : l'administrateur envoie une vidéo au bot avec, en légende, le mot
+# de l'étape ; le bot la garde et la sert à chaque /start. Personne d'autre ne voit ces textes.
+VIDEO_ENREGISTREE = "✔ Vidéo enregistrée pour « {titre} » ({etape}). Elle part avec cette étape dès maintenant."
+VIDEO_ETAPE_INCONNUE = (
+    "Je ne sais pas à quelle étape va cette vidéo. Renvoie-la avec, en légende, un de ces mots :\n{liste}")
+VIDEO_PAS_UNE_VIDEO = "Ce fichier n'est pas une vidéo. Envoie-la « en tant que vidéo » (ou un fichier .mp4)."
+VIDEOS_ETAT = ("Vidéos de ce bot :\n{lignes}\n\n"
+               "Pour en poser ou en remplacer une : envoie-moi la vidéo avec, en légende, le mot de l'étape.")
 APRES_AIDE = "Dis-moi quand c'est bon 👇"
 
 # Réponses aux gestes « hors parcours » (contre-audit 2026-09-17 : un vieux
