@@ -173,8 +173,8 @@ ETAPES = [
             "engagent (le 200 % demande de miser 35 fois le total).\n"
             "• **Tu as déjà demandé ?** L'activation prend jusqu'à 24 h — pas besoin "
             "de redemander.\n"
-            "• **Tu as touché à ton solde avant l'activation ?** Dis-le à Sofiane, "
-            "il verra ce qui est possible."
+            "• **Tu as touché à ton solde avant l'activation ?** Dis-le à l'équipe, "
+            "elle verra ce qui est possible."
         ),
     },
     {
@@ -192,7 +192,7 @@ ETAPES = [
             "regarde une partie sans miser, juste pour voir comment ça marche.\n"
             "• **Une question sur un bonus ?** Les conditions sont écrites sur "
             "la page du bonus — lis-les avant de l'activer, elles engagent.\n\n"
-            "Pour le reste, Sofiane peut te répondre directement."
+            "Pour le reste, l'équipe peut te répondre directement."
         ),
     },
 ]

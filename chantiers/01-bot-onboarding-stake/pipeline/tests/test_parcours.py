@@ -33,6 +33,16 @@ class Base(unittest.TestCase):
             os.environ.pop(cle, None)
 
 
+class TestAucunNomDansLesTextes(Base):
+    def test_aucun_texte_client_ne_nomme_le_demandeur(self):
+        """Demande de Zakaria (2026-10-19) : le nom de Sofiane n'apparaît jamais côté client."""
+        textes = [v for k, v in vars(contenu).items() if k.isupper() and isinstance(v, str)]
+        for e in contenu.ETAPES:
+            textes += [e["titre"], e["corps"], e["aide"]]
+        for texte in textes:
+            self.assertNotIn("sofiane", texte.lower(), texte[:80])
+
+
 class TestVideos(Base):
     """Les vidéos (2026-10-19) : une par étape, posées par l'administrateur."""
 
