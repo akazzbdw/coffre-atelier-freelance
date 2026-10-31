@@ -82,19 +82,24 @@ def etapes_pour(vpn: bool, debutant: bool = False) -> list[dict]:
     """Les étapes servies à cette personne : l'étape VPN n'existe que pour qui
     en a besoin (branche optionnelle du brief), l'étape crypto que pour qui
     part de zéro (V1.1, appel Sofiane du 2026-09-19)."""
-    return [e for e in contenu.ETAPES
-            if (vpn or not e.get("optionnelle")) and (debutant or not e.get("debutants"))]
+    etapes = [e for e in contenu.ETAPES
+              if (vpn or not e.get("optionnelle")) and (debutant or not e.get("debutants"))]
+    if not bonus_bot():
+        return etapes
+    return [{**e, **contenu.BONUS_PAR_BOT} if e["id"] == "bonus" else e for e in etapes]
 
 
 def remplir(texte: str, lien: str, vpn: str) -> str:
-    """Remplace {lien} et {vpn}, et RIEN d'autre.
+    """Remplace {lien}, {vpn}, {bonus_bot} et {influenceur}, et RIEN d'autre.
 
     Volontairement pas `.format()` : contenu.py est relu et corrigé par le
     demandeur, qui n'est pas codeur. Une accolade tapée dans un texte
     (« appuie sur {Connect} ») faisait planter l'étape entière
     (contre-audit 2026-09-17).
     """
-    return texte.replace("{lien}", lien).replace("{vpn}", vpn)
+    return (texte.replace("{lien}", lien).replace("{vpn}", vpn)
+            .replace("{bonus_bot}", bonus_bot())
+            .replace("{influenceur}", os.environ.get("BOT_NOM", "").strip()))
 
 
 def aide_rendue(etape: dict, lien: str, vpn: str) -> str:
@@ -200,13 +205,14 @@ def videos_lire() -> dict:
 def video_pour(videos: dict, etape_id: str):
     """(file_id, genre) de l'étape, ou None. Deux formes acceptées : la première
     (une chaîne = file_id d'une vidéo) et la forme posée par l'administrateur
-    ({"file_id", "genre"}) — genre « video » (lue dans Telegram) ou « document »
-    (un .mp4 envoyé en fichier : Telegram le sert en téléchargement)."""
+    ({"file_id", "genre"}) — genre « video » (lue dans Telegram), « document »
+    (un .mp4 envoyé en fichier : Telegram le sert en téléchargement) ou « photo »."""
     entree = videos.get(etape_id)
     if isinstance(entree, str) and entree:
         return entree, "video"
     if isinstance(entree, dict) and entree.get("file_id"):
-        return entree["file_id"], ("document" if entree.get("genre") == "document" else "video")
+        genre = entree.get("genre")
+        return entree["file_id"], (genre if genre in ("document", "photo") else "video")
     return None
 
 
@@ -215,6 +221,8 @@ def etape_pour_video(legende) -> dict | None:
     « /verification », « Vérification ») — jamais devinée : inconnue = None."""
     mot = (legende or "").strip().lstrip("/").strip().lower()
     mot = "".join(c for c in unicodedata.normalize("NFD", mot) if unicodedata.category(c) != "Mn")
+    if mot == contenu.MOT_PHOTO_FIN:
+        mot = contenu.ETAPES[-1]["id"]
     return next((e for e in contenu.ETAPES if e["id"] == mot), None)
 
 
@@ -224,7 +232,7 @@ def enregistrer_video(etape_id: str, file_id: str, genre: str, nom: str = "") ->
     if etape_pour_video(etape_id) is None:
         raise ValueError(f"étape inconnue : {etape_id}")
     videos = videos_lire()
-    videos[etape_id] = {"file_id": file_id, "genre": "document" if genre == "document" else "video",
+    videos[etape_id] = {"file_id": file_id, "genre": genre if genre in ("document", "photo") else "video",
                         "nom": nom or "", "quand": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     chemin = chemin_videos()
     chemin.parent.mkdir(parents=True, exist_ok=True)
@@ -373,6 +381,12 @@ def config() -> tuple[str, str]:
             os.environ.get("VPN_NOM", contenu.VPN_A_DEFINIR))
 
 
+def bonus_bot() -> str:
+    """Le lien du bot de bonus de CET influenceur (V1.3), vide tant qu'il n'en a pas :
+    le parcours garde alors la demande à l'administrateur."""
+    return os.environ.get("BONUS_BOT_LIEN", "").strip()
+
+
 def config_incomplete() -> list[str]:
     """Ce qui manque encore pour une mise en ligne réelle (réponses de Sofiane)."""
     lien, vpn = config()
@@ -386,6 +400,8 @@ def config_incomplete() -> list[str]:
         manques.append("STAKE_LIEN_PARRAINAGE (lien de parrainage, doit commencer par http)")
     if vpn.strip() in ("", contenu.VPN_A_DEFINIR) or vpn.strip().startswith("#"):
         manques.append("VPN_NOM (quel VPN gratuit)")
+    if bonus_bot() and not bonus_bot().startswith("http"):
+        manques.append("BONUS_BOT_LIEN (doit commencer par http)")
     return manques
 
 
@@ -427,14 +443,14 @@ def simuler(entrees=None, sortie=print) -> list[str]:
         sortie(rendu(etape, lien, vpn, position(etapes, etape["id"])))
         sortie(f"[ 🎥 emplacement vidéo — {etape['id']} ]")
         vues.append(etape["id"])
-        if etape["id"] == "bonus":
+        if etape["id"] == "bonus" and not bonus_bot():
             rep = demander(f"{contenu.BOUTON_BONUS} [d] / {contenu.BOUTON_PASSER} [f] / {contenu.BOUTON_BLOQUE} [b]")
         else:
             rep = demander(f"{contenu.BOUTON_FAIT} [f] / {contenu.BOUTON_BLOQUE} [b]")
         if rep.startswith("b"):
-            sortie("\n" + etape["aide"])
+            sortie("\n" + aide_rendue(etape, lien, vpn))
             sortie(contenu.APRES_AIDE)
-            rep = demander(contenu.BOUTON_FAIT + " [f]" + (" / " + contenu.BOUTON_BONUS + " [d]" if etape["id"] == "bonus" else ""))
+            rep = demander(contenu.BOUTON_FAIT + " [f]" + (" / " + contenu.BOUTON_BONUS + " [d]" if etape["id"] == "bonus" and not bonus_bot() else ""))
         if rep.startswith("d") and etape["id"] == "bonus":
             sortie("\n" + contenu.BONUS_DEMANDE_OK)
     sortie("\n" + contenu.FIN)

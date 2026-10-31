@@ -10,6 +10,7 @@ Env requis : TELEGRAM_BOT_TOKEN, STAKE_LIEN_PARRAINAGE, VPN_NOM.
 Env optionnel : MODE_TEST=1 (autorise le démarrage sans lien réel et montre
 les emplacements vidéo), VIDEOS_JSON (chemin du fichier des vidéos),
 BOT_NOM (l'influenceur servi — un bot par influenceur, V1.1),
+BONUS_BOT_LIEN (son bot de bonus, V1.3 : remplace la demande à l'administrateur),
 TELEGRAM_ADMIN_CHAT_ID (qui reçoit les demandes de bonus : Zakaria d'abord,
 Sofiane quand il aura le bot — sans lui, la demande est seulement tracée).
 L'administrateur est aussi le seul à poser les vidéos (2026-10-19) : il envoie
@@ -78,14 +79,32 @@ def clavier_depart() -> InlineKeyboardMarkup:
 
 
 def clavier_bonus() -> InlineKeyboardMarkup:
+    if parcours.bonus_bot():
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton(contenu.BOUTON_BONUS_BOT, url=parcours.bonus_bot())],
+            *clavier_etape("bonus").inline_keyboard])
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(contenu.BOUTON_BONUS, callback_data="bonus:demande")],
         [InlineKeyboardButton(contenu.BOUTON_PASSER, callback_data="fait:bonus"),
          InlineKeyboardButton(contenu.BOUTON_BLOQUE, callback_data="bloque:bonus")]])
 
 
+def clavier_fin_de_parcours() -> InlineKeyboardMarkup:
+    """La dernière étape renvoie sur le lien d'affiliation de CE bot (V1.3).
+    Sans vrai lien (MODE_TEST), Telegram refuserait le bouton : on ne le pose pas."""
+    lien = parcours.config()[0].strip()
+    boutons = clavier_etape(contenu.ETAPES[-1]["id"]).inline_keyboard
+    if not lien.startswith("http"):
+        return InlineKeyboardMarkup(boutons)
+    return InlineKeyboardMarkup([[InlineKeyboardButton(contenu.BOUTON_STAKE, url=lien)], *boutons])
+
+
 def clavier_pour(etape_id: str) -> InlineKeyboardMarkup:
-    return clavier_bonus() if etape_id == "bonus" else clavier_etape(etape_id)
+    if etape_id == "bonus":
+        return clavier_bonus()
+    if etape_id == contenu.ETAPES[-1]["id"]:
+        return clavier_fin_de_parcours()
+    return clavier_etape(etape_id)
 
 
 def clavier_vpn(complet: bool = True) -> InlineKeyboardMarkup:
@@ -155,6 +174,11 @@ async def envoyer_etape(ctx, chat_id: int, personne: str, etape_id: str,
                                             caption=en_html(texte),
                                             parse_mode=ParseMode.HTML,
                                             reply_markup=clavier_pour(etape_id))
+            elif genre == "photo":
+                await ctx.bot.send_photo(chat_id=chat_id, photo=fichier,
+                                         caption=en_html(texte),
+                                         parse_mode=ParseMode.HTML,
+                                         reply_markup=clavier_pour(etape_id))
             else:
                 await ctx.bot.send_video(chat_id=chat_id, video=fichier,
                                          caption=en_html(texte),
@@ -236,6 +260,15 @@ async def bouton(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     if action == "bonus":
+        if parcours.bonus_bot():      # vieux bouton d'avant le bot de bonus : on renvoie l'étape
+            await retirer_clavier(requete)
+            with parcours.connexion() as cx:
+                etat = parcours.etat_utilisable(cx, personne)
+            if etat["etape"] == "bonus":
+                await envoyer_etape(ctx, chat_id, personne, "bonus", etat)
+            else:
+                await dire(ctx, chat_id, contenu.DEJA_VALIDE)
+            return
         suite, etape = parcours.demander_bonus(personne, nom_lisible(update.effective_user))
         if suite == "ignore":
             await dire(ctx, chat_id, contenu.DEJA_VALIDE)
@@ -294,7 +327,7 @@ async def aide(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def poser_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """L'administrateur envoie une vidéo avec, en légende, le mot de l'étape.
+    """L'administrateur envoie une vidéo ou une photo avec, en légende, le mot de l'étape.
     Quelqu'un d'autre : rien — ce bot ne lit pas ce que les clients envoient
     (il n'a pas de cerveau, seulement un parcours)."""
     if not est_admin(update):
@@ -303,8 +336,11 @@ async def poser_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     video = getattr(message, "video", None)
     document = getattr(message, "document", None)
+    photo = getattr(message, "photo", None)
     if video is not None:
         file_id, genre, nom = video.file_id, "video", getattr(video, "file_name", "") or ""
+    elif photo:
+        file_id, genre, nom = photo[-1].file_id, "photo", ""     # la dernière = la plus grande
     elif document is not None and (getattr(document, "mime_type", "") or "").startswith("video/"):
         file_id, genre, nom = document.file_id, "document", getattr(document, "file_name", "") or ""
     else:
@@ -317,6 +353,7 @@ async def poser_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     parcours.enregistrer_video(etape["id"], file_id, genre, nom)
     await dire(ctx, chat_id, contenu.VIDEO_ENREGISTREE
+               .replace("{quoi}", "Photo" if genre == "photo" else "Vidéo")
                .replace("{titre}", etape["titre"]).replace("{etape}", etape["id"]))
 
 
@@ -359,7 +396,7 @@ def main() -> int:
         "bot-stake", "TELEGRAM_BOT_TOKEN",
         [CommandHandler("start", demarrer), CommandHandler("aide", aide),
          CommandHandler("recommencer", recommencer), CommandHandler("videos", etat_videos),
-         MessageHandler(filters.VIDEO | filters.Document.ALL, poser_video),
+         MessageHandler(filters.VIDEO | filters.PHOTO | filters.Document.ALL, poser_video),
          CallbackQueryHandler(bouton)],
         contenu.PANNE, tracer=parcours.tracer, log=log, allowed_updates=None,
         post_init=lambda app: _tracer_demarrage(nom))

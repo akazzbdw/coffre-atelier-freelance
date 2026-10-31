@@ -36,7 +36,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 | Qui | Demande | Payé ? | Statut | Prochaine action |
 |---|---|---|---|---|
-| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en ligne** (19/09, VPS Labo, phase démo ; V1.2 vidéos le 19/10) | vidéos posées dans les deux bots et groupe prévenu (19/10) → relecture des textes par Sofiane (toujours attendue) → **après validation : Sofiane héberge lui-même**, bots transférés, conteneurs Labo éteints |
+| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en ligne** (19/09, VPS Labo, phase démo ; V1.2 vidéos le 19/10 ; V1.3 bot de bonus le 31/10) | V1.3 à pousser, puis photo de fin à poser dans les deux bots → accès des bots demandés par Sofiane le 20/10 (nom, photo de profil : transfert BotFather) → relecture des textes par Sofiane → **après validation : Sofiane héberge lui-même**, bots transférés, conteneurs Labo éteints |
 
 ## Carte du projet
 

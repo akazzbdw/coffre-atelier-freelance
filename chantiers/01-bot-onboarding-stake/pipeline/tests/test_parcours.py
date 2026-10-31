@@ -50,6 +50,13 @@ class TestVideos(Base):
         super().setUp()
         os.environ["VIDEOS_JSON"] = str(Path(self._tmp.name) / "videos.json")
 
+    def test_le_mot_fin_designe_la_derniere_etape(self):
+        self.assertEqual(parcours.etape_pour_video("Fin")["id"], "jeux")
+
+    def test_une_photo_est_gardee_et_rendue_comme_photo(self):
+        parcours.enregistrer_video("jeux", "FID-p", "photo")
+        self.assertEqual(parcours.video_pour(parcours.videos_lire(), "jeux"), ("FID-p", "photo"))
+
     def test_la_legende_designe_une_etape_sans_deviner(self):
         self.assertEqual(parcours.etape_pour_video(" /Vérification ")["id"], "verification")
         self.assertEqual(parcours.etape_pour_video("COMPTE")["id"], "compte")
@@ -232,6 +239,30 @@ class TestRoutes(Base):
         self.assertEqual(parcours.choisir_depart("42", True), ("ignore", None))
         cx = parcours.ouvrir()
         self.assertFalse(parcours.lire_etat(cx, "42")["debutant"])
+
+    def test_le_bot_de_bonus_remplace_le_texte_de_l_etape_et_pas_les_autres(self):
+        os.environ["BONUS_BOT_LIEN"] = "https://t.me/bonus_exemple_bot"
+        os.environ["BOT_NOM"] = "Clive"
+        self.addCleanup(os.environ.pop, "BONUS_BOT_LIEN", None)
+        self.addCleanup(os.environ.pop, "BOT_NOM", None)
+        etapes = parcours.etapes_pour(False)
+        bonus = parcours.etape_par_id(etapes, "bonus")
+        texte = parcours.rendu(bonus, "L", "V", (1, 1))
+        self.assertIn("**Clive** t'offre", texte); self.assertIn("https://t.me/bonus_exemple_bot", texte)
+        self.assertNotIn("{", texte)
+        self.assertNotIn("{", parcours.aide_rendue(bonus, "L", "V"))
+        self.assertIn("35 fois", texte)
+        self.assertEqual([e["id"] for e in etapes], ["compte", "verification", "depot", "bonus", "jeux"])
+
+    def test_sans_bot_de_bonus_l_etape_reste_celle_d_avant(self):
+        os.environ.pop("BONUS_BOT_LIEN", None)
+        bonus = parcours.etape_par_id(parcours.etapes_pour(False), "bonus")
+        self.assertIn("Je demande mon bonus", bonus["corps"])
+
+    def test_un_lien_de_bonus_mal_forme_empeche_le_demarrage(self):
+        os.environ["BONUS_BOT_LIEN"] = "bonus_exemple_bot"
+        self.addCleanup(os.environ.pop, "BONUS_BOT_LIEN", None)
+        self.assertTrue([m for m in parcours.config_incomplete() if "BONUS_BOT_LIEN" in m])
 
     def test_demander_le_bonus_enregistre_et_avance(self):
         cx = parcours.ouvrir()

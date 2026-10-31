@@ -197,6 +197,31 @@ ETAPES = [
     },
 ]
 
+# V1.3 (appel Sofiane) : l'étape bonus d'un bot qui a son bot de bonus (BONUS_BOT_LIEN).
+# Ces deux textes remplacent ceux de l'étape « bonus » ci-dessus ; sans ce réglage,
+# le parcours reste celui d'avant (bouton de demande, message à l'administrateur).
+BONUS_PAR_BOT = {
+    "corps": (
+        "Au premier dépôt, **{influenceur}** t'offre **un** bonus, au choix :\n\n"
+        "🎁 **Bonus 20 €** — tu as déposé au moins 20 € et tu les as joués : "
+        "tu reçois 20 € de recharge.\n\n"
+        "🎁 **Bonus 200 %** — tu as déposé entre 200 € et 1 000 € : le site "
+        "ajoute 200 % de ton dépôt (200 € déposés → 400 € de bonus → 600 € au total). "
+        "Ce total doit être misé 35 fois avant de pouvoir être retiré.\n\n"
+        "👉 Pour l'activer, ouvre le bot de bonus : {bonus_bot}\n\n"
+        "⚠️ Pour le 200 %, **ne touche pas à ton solde** tant qu'il n'est pas activé.\n\n"
+        "Quand c'est fait, appuie sur « C'est fait ». Tu peux aussi passer cette étape."
+    ),
+    "aide": (
+        "• **Lequel choisir ?** Le 20 € si tu as fait un petit dépôt, le 200 % "
+        "si tu as déposé au moins 200 €. Lis bien les conditions : elles "
+        "engagent (le 200 % demande de miser 35 fois le total).\n"
+        "• **Le bot de bonus ne s'ouvre pas ?** Ouvre ce lien depuis Telegram : {bonus_bot}\n"
+        "• **Tu as touché à ton solde avant l'activation ?** Dis-le à l'équipe, "
+        "elle verra ce qui est possible."
+    ),
+}
+
 FIN = (
     "C'est terminé — tu as tout fait. 👌\n\n"
     "Si tu bloques sur quelque chose plus tard, reviens ici et tape /aide.\n"
@@ -212,6 +237,8 @@ BOUTON_NON = "Non, ça marche chez moi"
 BOUTON_CEST_QUOI = "C'est quoi un VPN ?"
 BOUTON_BONUS = "🎁 Je demande mon bonus"
 BOUTON_PASSER = "Je passe cette étape"
+BOUTON_BONUS_BOT = "🎁 Activer mon bonus"
+BOUTON_STAKE = "🎰 Aller sur Stake"
 BONUS_DEMANDE_OK = (
     "C'est noté 👍 L'équipe active ton bonus sous 24 h.\n"
     "En attendant, ne touche pas à ton solde. On continue."
@@ -222,10 +249,13 @@ ADMIN_BONUS = "🎁 Demande de bonus — bot {bot}\nQui : {qui}\nÀ activer sous
 
 # Les vidéos (2026-10-19) : l'administrateur envoie une vidéo au bot avec, en légende, le mot
 # de l'étape ; le bot la garde et la sert à chaque /start. Personne d'autre ne voit ces textes.
-VIDEO_ENREGISTREE = "✔ Vidéo enregistrée pour « {titre} » ({etape}). Elle part avec cette étape dès maintenant."
+VIDEO_ENREGISTREE = "✔ {quoi} enregistrée pour « {titre} » ({etape}). Elle part avec cette étape dès maintenant."
+# le mot de la photo de fin, en plus du mot de l'étape (« jeux »)
+MOT_PHOTO_FIN = "fin"
 VIDEO_ETAPE_INCONNUE = (
-    "Je ne sais pas à quelle étape va cette vidéo. Renvoie-la avec, en légende, un de ces mots :\n{liste}")
-VIDEO_PAS_UNE_VIDEO = "Ce fichier n'est pas une vidéo. Envoie-la « en tant que vidéo » (ou un fichier .mp4)."
+    "Je ne sais pas à quelle étape va ce fichier. Renvoie-le avec, en légende, un de ces mots :\n{liste}")
+VIDEO_PAS_UNE_VIDEO = ("Ce fichier n'est pas une vidéo ni une photo. "
+                       "Envoie-le « en tant que vidéo » ou comme photo (ou un fichier .mp4).")
 VIDEOS_ETAT = ("Vidéos de ce bot :\n{lignes}\n\n"
                "Pour en poser ou en remplacer une : envoie-moi la vidéo avec, en légende, le mot de l'étape.")
 APRES_AIDE = "Dis-moi quand c'est bon 👇"

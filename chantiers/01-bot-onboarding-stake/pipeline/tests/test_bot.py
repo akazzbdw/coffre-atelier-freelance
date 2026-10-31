@@ -41,6 +41,11 @@ class FauxBot:
         self.envois.append(("video", caption, reply_markup))
         self.fichiers = getattr(self, "fichiers", []) + [("video", video)]
 
+    async def send_photo(self, chat_id, photo, caption=None, parse_mode=None,
+                         reply_markup=None):
+        self.envois.append(("photo", caption, reply_markup))
+        self.fichiers = getattr(self, "fichiers", []) + [("photo", photo)]
+
     async def send_document(self, chat_id, document, caption=None, parse_mode=None,
                             reply_markup=None):
         self.envois.append(("document", caption, reply_markup))
@@ -96,6 +101,12 @@ def message_fichier(legende, mime="video/mp4", file_id="FID-doc"):
     """Un .mp4 envoyé « en tant que fichier » (partage depuis WhatsApp)."""
     doc = type("D", (), {"file_id": file_id, "file_name": "tuto.mp4", "mime_type": mime})()
     return type("M", (), {"video": None, "document": doc, "caption": legende})()
+
+
+def message_photo(legende, file_id="FID-grande"):
+    """Telegram donne chaque photo en plusieurs tailles, la plus grande en dernier."""
+    tailles = [type("P", (), {"file_id": "FID-petite"})(), type("P", (), {"file_id": file_id})()]
+    return type("M", (), {"video": None, "document": None, "photo": tailles, "caption": legende})()
 
 
 @unittest.skipUnless(TELEGRAM, "python-telegram-bot absent (normal sur le Mac)")
@@ -179,6 +190,81 @@ class TestHandlers(unittest.TestCase):
         self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
         boutons = [b.callback_data for ligne in ctx.bot.envois[-1][2].inline_keyboard for b in ligne]
         self.assertIn("bonus:demande", boutons); self.assertIn("fait:bonus", boutons)
+
+    # ----- V1.3 (appel Sofiane) : le bot de bonus, le lien et la photo de la dernière étape
+
+    def avec_bot_de_bonus(self):
+        os.environ["BONUS_BOT_LIEN"] = "https://t.me/bonus_exemple_bot"
+        os.environ["BOT_NOM"] = "JD"
+        self.addCleanup(os.environ.pop, "BONUS_BOT_LIEN", None)
+        self.addCleanup(os.environ.pop, "BOT_NOM", None)
+
+    def boutons(self, envoi):
+        return [b for ligne in envoi[2].inline_keyboard for b in ligne]
+
+    def test_avec_un_bot_de_bonus_l_etape_renvoie_vers_lui(self):
+        self.avec_bot_de_bonus()
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        envoi = ctx.bot.envois[-1]
+        self.assertIn("<b>JD</b> t'offre", envoi[1]); self.assertIn("https://t.me/bonus_exemple_bot", envoi[1])
+        boutons = self.boutons(envoi)
+        self.assertEqual(boutons[0].url, "https://t.me/bonus_exemple_bot")
+        donnees = [b.callback_data for b in boutons]
+        self.assertIn("fait:bonus", donnees); self.assertIn("bloque:bonus", donnees)
+        self.assertNotIn("bonus:demande", donnees)
+
+    def test_vieux_bouton_de_demande_ne_part_plus_a_l_admin(self):
+        self.avec_bot_de_bonus()
+        os.environ["TELEGRAM_ADMIN_CHAT_ID"] = "999"
+        self.addCleanup(os.environ.pop, "TELEGRAM_ADMIN_CHAT_ID", None)
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="bonus")
+        cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.bouton(FauxUpdate(requete=FausseRequete("bonus:demande")), ctx))
+        self.assertNotIn(999, ctx.bot.destinataires)
+        self.assertEqual(parcours.demandes_bonus(), [])
+        self.assertIn("bonus_exemple_bot", ctx.bot.envois[-1][1])
+
+    def test_la_derniere_etape_renvoie_sur_le_lien_de_ce_bot(self):
+        cx = parcours.ouvrir()
+        parcours.ecrire_etat(cx, "42", vpn=False, debutant=False, etape="jeux")
+        cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        boutons = self.boutons(ctx.bot.envois[-1])
+        self.assertEqual(boutons[0].url, "https://exemple.test/r/sofiane")
+        self.assertIn("fait:jeux", [b.callback_data for b in boutons])
+
+    def test_sans_vrai_lien_la_derniere_etape_ne_pose_pas_de_bouton_lien(self):
+        os.environ["STAKE_LIEN_PARRAINAGE"] = "LIEN-PARRAINAGE-A-DEFINIR"
+        clavier = self.bot.clavier_pour("jeux")
+        self.assertFalse([b for ligne in clavier.inline_keyboard for b in ligne if b.url])
+
+    def test_l_admin_pose_la_photo_de_fin_et_la_derniere_etape_part_avec(self):
+        os.environ["TELEGRAM_ADMIN_CHAT_ID"] = "999"
+        self.addCleanup(os.environ.pop, "TELEGRAM_ADMIN_CHAT_ID", None)
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("999", message=message_photo("fin")), ctx))
+        self.assertIn("Photo enregistrée", ctx.bot.envois[-1][1]); self.assertIn("Tes premiers pas", ctx.bot.envois[-1][1])
+        cx = parcours.ouvrir(); parcours.ecrire_etat(cx, "42", vpn=False, etape="jeux"); cx.close()
+        ctx = FauxCtx()
+        self.lancer(self.bot.demarrer(FauxUpdate(), ctx))
+        genre, legende, clavier = ctx.bot.envois[-1]
+        self.assertEqual(genre, "photo"); self.assertIn("Tes premiers pas", legende)
+        self.assertEqual(ctx.bot.fichiers[-1], ("photo", "FID-grande"))
+        self.assertTrue(clavier.inline_keyboard[0][0].url, "la photo porte le bouton vers le lien")
+
+    def test_un_client_qui_envoie_une_photo_n_enregistre_rien(self):
+        os.environ["TELEGRAM_ADMIN_CHAT_ID"] = "999"
+        self.addCleanup(os.environ.pop, "TELEGRAM_ADMIN_CHAT_ID", None)
+        ctx = FauxCtx()
+        self.lancer(self.bot.poser_video(FauxUpdate("42", message=message_photo("fin")), ctx))
+        self.assertEqual(ctx.bot.envois, []); self.assertEqual(parcours.videos_lire(), {})
 
     def test_bouton_sur_message_trop_vieux_repond_quand_meme(self):
         """Le scénario phare : la personne revient 3 jours après et clique

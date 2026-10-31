@@ -30,6 +30,11 @@ services:
     <<: *bot
     container_name: bot-stake-jd
     env_file: /home/ubuntu/labo-secrets/coffres/atelier-freelance/09-stake-jd.env   # hors dépôt (audit 2026-09-22)
+    environment:
+      # V1.3 : le bot de bonus de JD (pas un secret). Clive l'aura le jour où Steve livre le sien :
+      # une ligne ici, rien d'autre.
+      BONUS_BOT_LIEN: https://t.me/bonus_by_jd_bot
+      BOT_NOM: JD   # écrit dans « JD t'offre » : le texte ne dépend pas du fichier du serveur
     volumes:
       # montage MINIMAL : la boîte noire, rien d'autre — ce bot n'a aucune
       # raison de voir le reste du Labo (il sert des inconnus).
