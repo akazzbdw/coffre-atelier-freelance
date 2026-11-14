@@ -5,3 +5,4 @@ donnees/
 .env*
 !.env.example
 __pycache__/
+01-Vault/boite-noire/

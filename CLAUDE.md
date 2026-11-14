@@ -36,7 +36,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 
 | Qui | Demande | Payé ? | Statut | Prochaine action |
 |---|---|---|---|---|
-| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en ligne** (19/09, VPS Labo, phase démo ; V1.2 vidéos le 19/10 ; V1.3 bot de bonus le 31/10) | V1.3 en ligne et testée sur téléphone par Zakaria (31/10) → accès des bots demandés par Sofiane le 20/10 (nom, photo de profil : transfert BotFather) → relecture des textes par Sofiane → **après validation : Sofiane héberge lui-même**, bots transférés, conteneurs Labo éteints |
+| Sofiane El Mazghi | Bots Telegram (un par influenceur : JD, Clive) qui accompagnent pas à pas l'ouverture d'un compte Stake (chantier `01-bot-onboarding-stake`) | non — service d'ami | **en ligne** (19/09, VPS Labo, phase démo ; V1.2 vidéos le 19/10 ; V1.3 bot de bonus le 31/10) | **Guide de passation PDF prêt (03/11, `sorties/`) : Zakaria relit et l'envoie à Sofiane lui-même** → relecture des textes par Sofiane (annexe du guide), son identifiant Telegram, son serveur → paquet autonome à préparer alors → accès des bots demandés par Sofiane le 20/10 (nom, photo de profil : transfert BotFather) → **après validation : Sofiane héberge lui-même**, bots transférés, conteneurs Labo éteints |
 
 ## Carte du projet
 
@@ -50,6 +50,7 @@ L'outil se construira le jour où le tableau ne suffira plus — pas avant (leç
 | `chantiers/01-bot-onboarding-stake/` | Chantier n°1 : le bot d'accompagnement Stake (deux bots sur une image) ; son brief et sa carte dans son `CLAUDE.md`. |
 | `briques/` | Ce qui se réutilise d'un chantier à l'autre (extrait APRÈS coup, jamais anticipé) |
 | `sorties/` | Ce que l'atelier produit (`AAAA-MM-JJ-type-nom`) |
+| `01-Vault/` | La boîte noire du coffre sur le Mac (`01-Vault/boite-noire/`, ignorée par git) : le détail des lignes dont l'usine ne reçoit que le fait (`00-Systeme/labo_trace.py` de l'usine ; contrôle 44). Créé par le code le 03/11, sa ligne posée le 14/11 (contrôle 46). |
 
 *(Allègement assumé, règle 2026-08-11 : l'atelier n'a ni `app/` ni `api/` — il n'a pas d'interface. Un chantier qui a besoin d'une interface clone le squelette chez lui.)*
 
