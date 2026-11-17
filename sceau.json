@@ -1,10 +1,12 @@
 {
  "coffre": "atelier-freelance",
- "compteur": 2,
- "date": "2026-11-14T19:38:19Z",
- "empreinte": "595231018580da365426cf92670686fe2c09506d1196d861aa767a2cd6f7f238",
+ "compteur": 3,
+ "date": "2026-11-17T12:19:02Z",
+ "empreinte": "162e34352cd8880115d8b209ccf3651b9a9606f64f50164add93ddff7670cead",
  "fichiers": {
   ".gitignore": "107ae4ec529190ba6312201058a2965936c35b52",
+  "CLAUDE.md": "6d8a7dccde17f91ce981feb1699ae2236a1d7875",
+  "chantiers/01-bot-onboarding-stake/CLAUDE.md": "4f52927e039550455b45a022bd13f06ea0516e29",
   "methode.lock": "b699ded6ae64911cc4d1bbb4dd9e98b419d559df"
  },
  "motifs": {
@@ -20,10 +22,11 @@
    "**/.vscode/**",
    "**/.idea/**",
    "**/.envrc",
-   ".gitignore"
+   ".gitignore",
+   "**/CLAUDE.md"
   ],
   "reinclus": []
  },
- "signature": "MEUCIBknWrO2EDYG14eowLMy2DK0c7BiaO3BlgljIloiZwvCAiEA34RXhcIMO+eR5ej0Zfn5tJP6IC8HsLRVkF5fWF/lKgw=",
+ "signature": "MEUCIGdDhaY/dykN5MOXlBv9bpVtujA0mO+r6v8QX2w01iOyAiEA0QuiTfyHX2622YxAbKws5j6/fXhs+V/QwmjF/SaUq3M=",
  "version": 1
 }
